@@ -40,6 +40,23 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         }
     }
 
+    /// The pixel size of the dock container the pane frames are laid out in,
+    /// projected to the `workspaces[i].containerFrame` object ({width,
+    /// height}). Divide each ``CustomSidebarSurfaceSnapshot/Frame`` by these to
+    /// normalize the split layout to any drawing size.
+    public struct ContainerSize: Sendable, Equatable {
+        /// The container width, in pixels.
+        public let width: Double
+        /// The container height, in pixels.
+        public let height: Double
+
+        /// Creates a container size.
+        public init(width: Double, height: Double) {
+            self.width = width
+            self.height = height
+        }
+    }
+
     /// The containing workspace group's id (`workspaces[i].group`), or `nil`
     /// when the workspace is ungrouped.
     public let groupId: UUID?
@@ -90,6 +107,9 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
     /// Coding-agent sessions hosted by this workspace's terminals, most
     /// recent first (`workspaces[i].agents`); the key is omitted when empty.
     public let agents: [CustomSidebarAgentSnapshot]
+    /// The dock container size the pane frames are laid out in
+    /// (`workspaces[i].containerFrame`); omitted when `nil`.
+    public let containerFrame: ContainerSize?
 
     /// Creates a workspace snapshot from already-resolved leaf values.
     public init(
@@ -114,7 +134,8 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         latestSubmittedAt: Date?,
         remote: Remote?,
         agents: [CustomSidebarAgentSnapshot] = [],
-        groupId: UUID? = nil
+        groupId: UUID? = nil,
+        containerFrame: ContainerSize? = nil
     ) {
         self.groupId = groupId
         self.id = id
@@ -138,5 +159,6 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         self.latestSubmittedAt = latestSubmittedAt
         self.remote = remote
         self.agents = agents
+        self.containerFrame = containerFrame
     }
 }

@@ -1,3 +1,4 @@
+import Bonsplit
 import CmuxAgentChat
 import CmuxSidebar
 import Foundation
@@ -21,6 +22,28 @@ extension Workspace {
                 isConnected: remoteConnectionState == .connected
             )
         }
+        // Pane geometry from the same Bonsplit layout snapshot the socket
+        // `pane.list` command reads, keyed by pane id (uuidString) so each
+        // surface can carry its split cell's pixel frame.
+        let layout = bonsplitController.layoutSnapshot()
+        let containerFrame = CustomSidebarWorkspaceSnapshot.ContainerSize(
+            width: layout.containerFrame.width,
+            height: layout.containerFrame.height
+        )
+        let frameByPaneId = Dictionary(
+            layout.panes.map { pane in
+                (
+                    pane.paneId,
+                    CustomSidebarSurfaceSnapshot.Frame(
+                        x: pane.frame.x,
+                        y: pane.frame.y,
+                        width: pane.frame.width,
+                        height: pane.frame.height
+                    )
+                )
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         return CustomSidebarWorkspaceSnapshot(
             id: id,
             title: customTitle ?? title,
@@ -30,7 +53,10 @@ extension Workspace {
             directory: presentedCurrentDirectory ?? "",
             listeningPorts: listeningPorts,
             unreadCount: unreadCount,
-            surfaces: customSidebarSurfaceSnapshots(focusedPanelId: focusedPanelId),
+            surfaces: customSidebarSurfaceSnapshots(
+                focusedPanelId: focusedPanelId,
+                frameByPaneId: frameByPaneId
+            ),
             surfaceCount: bonsplitController.allPaneIds.reduce(0) {
                 $0 + bonsplitController.tabs(inPane: $1).count
             },
@@ -45,7 +71,8 @@ extension Workspace {
             latestSubmittedAt: latestSubmittedAt,
             remote: remote,
             agents: customSidebarAgentSnapshots(),
-            groupId: groupId
+            groupId: groupId,
+            containerFrame: containerFrame
         )
     }
 
@@ -128,9 +155,14 @@ extension Workspace {
         return agents
     }
 
-    private func customSidebarSurfaceSnapshots(focusedPanelId: UUID?) -> [CustomSidebarSurfaceSnapshot] {
+    private func customSidebarSurfaceSnapshots(
+        focusedPanelId: UUID?,
+        frameByPaneId: [String: CustomSidebarSurfaceSnapshot.Frame]
+    ) -> [CustomSidebarSurfaceSnapshot] {
         var surfaces: [CustomSidebarSurfaceSnapshot] = []
         for paneId in bonsplitController.allPaneIds {
+            // Every tab in a pane shares that pane's split-cell frame.
+            let frame = frameByPaneId[paneId.id.uuidString]
             for tab in bonsplitController.tabs(inPane: paneId) {
                 guard let panelId = panelIdFromSurfaceId(tab.id) else { continue }
                 let git = reportedPanelGitBranch(panelId: panelId)
@@ -144,7 +176,8 @@ extension Workspace {
                         directory: reportedPanelDirectory(panelId: panelId),
                         gitBranch: git?.branch,
                         gitIsDirty: git?.isDirty ?? false,
-                        listeningPorts: surfaceListeningPorts[panelId] ?? []
+                        listeningPorts: surfaceListeningPorts[panelId] ?? [],
+                        frame: frame
                     )
                 )
             }

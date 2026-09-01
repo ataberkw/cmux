@@ -136,6 +136,12 @@ public struct CustomSidebarDataContextBuilder {
         if !workspace.agents.isEmpty {
             fields["agents"] = .array(workspace.agents.map(agentValue(_:)))
         }
+        if let container = workspace.containerFrame {
+            fields["containerFrame"] = .object([
+                "width": .double(container.width),
+                "height": .double(container.height),
+            ])
+        }
         return .object(fields)
     }
 
@@ -218,6 +224,14 @@ public struct CustomSidebarDataContextBuilder {
         }
         if !surface.listeningPorts.isEmpty {
             surfaceFields["ports"] = .array(surface.listeningPorts.map { .int($0) })
+        }
+        if let frame = surface.frame {
+            surfaceFields["frame"] = .object([
+                "x": .double(frame.x),
+                "y": .double(frame.y),
+                "width": .double(frame.width),
+                "height": .double(frame.height),
+            ])
         }
         return .object(surfaceFields)
     }

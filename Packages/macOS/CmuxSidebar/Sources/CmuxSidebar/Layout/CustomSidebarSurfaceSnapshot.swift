@@ -8,6 +8,33 @@ public import Foundation
 /// Optional fields are `nil` when absent so interpreted `if let` / ternary
 /// truthiness behaves; `nil` and empty strings are both treated as absent.
 public struct CustomSidebarSurfaceSnapshot: Sendable, Equatable {
+    /// The pixel rectangle the surface's pane occupies within its workspace
+    /// dock, projected to the `tabs[i].frame` object ({x, y, width, height}).
+    ///
+    /// Tabs that share a pane report the same frame (a pane is one split
+    /// cell). Normalize each field against
+    /// ``CustomSidebarWorkspaceSnapshot/containerFrame`` to draw the split
+    /// layout at any size. Mirrors the same Bonsplit geometry the socket
+    /// `pane.list` command exposes as `pixel_frame`.
+    public struct Frame: Sendable, Equatable {
+        /// The frame's origin x, in pixels.
+        public let x: Double
+        /// The frame's origin y, in pixels.
+        public let y: Double
+        /// The frame's width, in pixels.
+        public let width: Double
+        /// The frame's height, in pixels.
+        public let height: Double
+
+        /// Creates a pane pixel frame.
+        public init(x: Double, y: Double, width: Double, height: Double) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+        }
+    }
+
     /// The panel identifier, projected to the interpreter `tabs[i].id` string.
     public let panelId: UUID
     /// The surface (tab) identifier, projected as `tabs[i].surfaceId`. This is
@@ -30,6 +57,9 @@ public struct CustomSidebarSurfaceSnapshot: Sendable, Equatable {
     public let gitIsDirty: Bool
     /// The surface's listening ports, or empty when none (`tabs[i].ports`).
     public let listeningPorts: [Int]
+    /// The pane's pixel frame (`tabs[i].frame`); `nil` when layout geometry is
+    /// unavailable, so the key is omitted for interpreted truthiness.
+    public let frame: Frame?
 
     /// Creates a surface snapshot from already-resolved leaf values.
     public init(
@@ -41,7 +71,8 @@ public struct CustomSidebarSurfaceSnapshot: Sendable, Equatable {
         directory: String?,
         gitBranch: String?,
         gitIsDirty: Bool,
-        listeningPorts: [Int]
+        listeningPorts: [Int],
+        frame: Frame? = nil
     ) {
         self.panelId = panelId
         self.surfaceId = surfaceId
@@ -52,5 +83,6 @@ public struct CustomSidebarSurfaceSnapshot: Sendable, Equatable {
         self.gitBranch = gitBranch
         self.gitIsDirty = gitIsDirty
         self.listeningPorts = listeningPorts
+        self.frame = frame
     }
 }
