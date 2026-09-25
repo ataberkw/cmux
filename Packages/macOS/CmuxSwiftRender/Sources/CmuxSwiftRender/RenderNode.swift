@@ -78,6 +78,9 @@ public struct RenderNode: Codable, Sendable, Equatable {
     public var text: String?
     /// SF Symbol name for `.image` nodes (`Image(systemName:)`).
     public var systemName: String?
+    /// Base64-encoded raster image bytes for `.image` nodes drawn from data
+    /// (`Image(data:)`); takes precedence over `systemName` when present.
+    public var imageData: String?
     public var spacing: Double?
     /// Corner radius for `.roundedRectangle` (`RoundedRectangle(cornerRadius:)`).
     public var cornerRadius: Double?
@@ -93,11 +96,17 @@ public struct RenderNode: Codable, Sendable, Equatable {
     public var action: ButtonAction?
     /// Drag-and-drop reorder spec for `.reorderable` nodes.
     public var reorder: ReorderSpec?
+    /// The payload this node carries when dragged (`.draggable(value)`).
+    public var dragPayload: String?
+    /// What happens when a dragged payload is dropped on this node
+    /// (`.dropDestination { payload, zone in … }`).
+    public var drop: DropSpec?
 
     public init(
         kind: Kind,
         text: String? = nil,
         systemName: String? = nil,
+        imageData: String? = nil,
         spacing: Double? = nil,
         cornerRadius: Double? = nil,
         value: Double? = nil,
@@ -106,11 +115,14 @@ public struct RenderNode: Codable, Sendable, Equatable {
         children: [RenderNode] = [],
         modifiers: [RenderModifier] = [],
         action: ButtonAction? = nil,
-        reorder: ReorderSpec? = nil
+        reorder: ReorderSpec? = nil,
+        dragPayload: String? = nil,
+        drop: DropSpec? = nil
     ) {
         self.kind = kind
         self.text = text
         self.systemName = systemName
+        self.imageData = imageData
         self.spacing = spacing
         self.cornerRadius = cornerRadius
         self.value = value
@@ -120,5 +132,7 @@ public struct RenderNode: Codable, Sendable, Equatable {
         self.modifiers = modifiers
         self.action = action
         self.reorder = reorder
+        self.dragPayload = dragPayload
+        self.drop = drop
     }
 }

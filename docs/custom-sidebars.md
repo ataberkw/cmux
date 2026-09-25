@@ -344,7 +344,8 @@ SF Symbols: `.imageScale(.large)`, `.symbolRenderingMode(.hierarchical)`,
 `.symbolVariant(.fill)`.
 
 Interaction/semantics: `.onTapGesture { <action> }` (any view tappable),
-`.contextMenu { <buttons> }`, `.help("tip")`, `.disabled(cond)`,
+`.draggable(value)` / `.dropDestination { value, zone in <action> }` (see
+below), `.contextMenu { <buttons> }`, `.help("tip")`, `.disabled(cond)`,
 `.accessibilityLabel("...")`.
 
 The decoration modifiers that take a trailing `{ <view> }` (`.overlay`,
@@ -400,6 +401,32 @@ workspace order):
     }
 
 The dropped item's id and target index are sent as `workspace_id` and `index`.
+
+## Drag-and-drop between views (`.draggable` / `.dropDestination`)
+
+For anything that isn't a single reorderable list (moving a pane from one
+workspace to another, for example), mark a view as a drag source with
+`.draggable(value)` and a view as a drop target with `.dropDestination`. The
+drop closure's first parameter is the dragged value. An optional second
+parameter is the drop zone: `"left"`, `"right"`, `"up"`, `"down"` when the
+pointer is in the target's outer quarter on that side, otherwise `"center"`.
+While dragging, the sidebar outlines the source and highlights the half (or
+whole) of the target the drop would occupy.
+
+    RoundedRectangle(cornerRadius: 3)
+        .draggable(pane.panelId)
+        .dropDestination { surface, zone in
+            cmux("surface.move", surface_id: surface, pane_id: pane.paneId, split: zone)
+        }
+
+`surface.move` accepts `split: left|right|up|down` to open the moved surface
+in a new split on that side of the target pane (`center` joins it as a tab),
+so a zone can be passed straight through. Every pane node in
+`workspaces[i].layout` carries `paneId` (a drop target for `pane_id`) and
+`panelId` (the surface to drag). The innermost target under the pointer wins,
+and dropping anywhere over the drag's own source does nothing. A target
+without a zone parameter always highlights as a whole. This works in both the
+in-process and remote renderers.
 
 ## Two-column (Finder-style) example
 

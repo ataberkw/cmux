@@ -40,6 +40,13 @@ final class RenderWorkerCoordinator {
     /// Tappable regions of the current render, in the root coordinate space
     /// (top-left origin), refreshed by the root view's preference observer.
     private var tapTargets: [SidebarTapTarget] = []
+    /// Drag sources and drop targets of the current render, in the same space.
+    private var dragRegions: [SidebarDragRegion] = []
+    /// Where the primary button went down (root space), while it is held.
+    private var pressLocation: CGPoint?
+    /// The drag the forwarded pointer is driving, once it passed the
+    /// activation distance from a drag source.
+    private var dragSession: SidebarDragSession?
 
     /// Loads and watches the sidebar file (hot reload), reusing the exact
     /// in-process semantics.
@@ -271,11 +278,15 @@ final class RenderWorkerCoordinator {
                 contentInsets: insets,
                 dataContext: dataState
             ),
+            dragSession: dragSession,
             onTapTargetsChange: { [weak self] targets in
                 self?.tapTargets = targets
                 self?.debugLog(
                     "tap targets updated count=\(targets.count) maxX=\(Int(targets.map(\.frame.maxX).max() ?? 0))"
                 )
+            },
+            onDragRegionsChange: { [weak self] regions in
+                self?.dragRegions = regions
             }
         )
     }
@@ -318,6 +329,11 @@ final class RenderWorkerCoordinator {
         case .scroll:
             scroll(by: event, at: location, in: hosting)
         case .up:
+            pressLocation = nil
+            if let session = dragSession {
+                finishDrag(session, at: rootPoint(location))
+                return
+            }
             // Geometric activation: forwarded clicks are hit-tested against
             // the rendered tree's reported tap targets. Synthesized NSEvents
             // route correctly (verified down to the SwiftUI container view)
@@ -325,11 +341,60 @@ final class RenderWorkerCoordinator {
             // window, and its AX tree only materializes for assistive
             // clients — the registry is deterministic and testable instead.
             press(at: location)
-        case .down, .drag:
-            // The press fires on up; an in-progress press has no offscreen
-            // visual feedback to drive.
-            break
+        case .down:
+            // The press fires on up; remember where it began in case it
+            // turns into a drag.
+            pressLocation = rootPoint(location)
+            dragSession = nil
+        case .drag:
+            updateDrag(to: rootPoint(location))
         }
+    }
+
+    /// Converts a forwarded window point (bottom-left origin) into the root
+    /// view's top-left-origin space that tap targets and drag regions use.
+    private func rootPoint(_ location: NSPoint) -> CGPoint {
+        CGPoint(x: location.x, y: CGFloat(geometry.height) - location.y)
+    }
+
+    /// Starts (past the activation distance from a drag source) or advances
+    /// the forwarded drag, republishing the feedback overlay.
+    private func updateDrag(to point: CGPoint) {
+        var started = false
+        if dragSession == nil {
+            guard let start = pressLocation,
+                  SidebarDragSession.hasActivated(from: start, to: point),
+                  let session = SidebarDragSession(pressedAt: start, regions: dragRegions) else { return }
+            // A press that became a drag never also fires as a tap.
+            debugLog("drag: started payload=\(session.payload)")
+            dragSession = session
+            started = true
+        }
+        let previousHover = dragSession?.hover
+        dragSession?.move(to: point, regions: dragRegions)
+        // Only the hovered target/zone is drawn, so skip re-rendering for
+        // moves that don't change it.
+        if started || dragSession?.hover != previousHover {
+            republishDragFeedback()
+        }
+    }
+
+    /// Runs the drop (when over an accepting target) and clears the feedback.
+    private func finishDrag(_ session: SidebarDragSession, at point: CGPoint) {
+        var finished = session
+        finished.move(to: point, regions: dragRegions)
+        dragSession = nil
+        republishDragFeedback()
+        guard let action = finished.dropAction else {
+            debugLog("drag: released over no target at \(point)")
+            return
+        }
+        debugLog("drag: dropping payload=\(finished.payload) zone=\(finished.hover?.zone.rawValue ?? "-")")
+        send(.action(action))
+    }
+
+    private func republishDragFeedback() {
+        hosting?.rootView = currentContent()
     }
 
     /// Fires the innermost tap target containing `location` (window coords,

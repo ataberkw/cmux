@@ -131,6 +131,13 @@ extension CMUXCLI {
             }
             params["index"] = index
         }
+        if let splitRaw = optionValue(commandArgs, name: "--split") {
+            let split = splitRaw.lowercased()
+            guard ["left", "right", "up", "down", "center"].contains(split) else {
+                throw CLIError(message: "--split must be one of left, right, up, down, center")
+            }
+            params["split"] = split
+        }
         if let focusRaw = optionValue(commandArgs, name: "--focus") {
             guard let focus = parseBoolString(focusRaw) else {
                 throw CLIError(message: "--focus must be true|false")

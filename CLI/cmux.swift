@@ -18705,11 +18705,15 @@ struct CMUXCLI {
               --after-surface <id|ref|index>
                                        Alias for --after
               --index <n>                Place at this index
+              --split <left|right|up|down>
+                                       Open in a new split on that side of the
+                                       target pane instead of joining it as a tab
               --focus <true|false>       Focus the surface after moving
 
             Example:
               cmux move-surface --surface surface:1 --workspace workspace:2
               cmux move-surface surface:1 --pane pane:2 --index 0
+              cmux move-surface surface:1 --pane pane:2 --split right
             """
         case "reorder-surface":
             return """

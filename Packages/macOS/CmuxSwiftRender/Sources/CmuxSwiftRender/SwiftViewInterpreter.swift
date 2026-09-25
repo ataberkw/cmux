@@ -138,6 +138,17 @@ public struct SwiftViewInterpreter: Sendable {
                 node.action = parseAction(closure, env)
                 return node
             }
+            // `.draggable(value)` makes the view a drag source carrying
+            // `value`; `.dropDestination { payload, zone in … }` makes it a
+            // drop target whose commands see the dropped payload and zone.
+            if name == "draggable", let payloadExpr = call.arguments.first?.expression {
+                node.dragPayload = exprString(payloadExpr, env)
+                return node
+            }
+            if name == "dropDestination", let closure = call.trailingClosure {
+                node.drop = parseDrop(closure, env)
+                return node
+            }
             // Child-bearing modifiers carry their trailing closure's views as a
             // subtree (`.overlay { ... }`, `.background { ... }`, `.mask { ... }`,
             // `.safeAreaInset(edge:) { ... }`), so arbitrary nested content
@@ -179,6 +190,11 @@ public struct SwiftViewInterpreter: Sendable {
                 action: call.trailingClosure.map { parseAction($0, env) }
             )
         case "Image":
+            // `Image(data: <base64>)` draws a raster image; `Image(systemName:)`
+            // (or a bare first arg) draws an SF Symbol.
+            if let dataExpr = call.arguments.first(where: { $0.label?.text == "data" })?.expression {
+                return RenderNode(kind: .image, imageData: exprString(dataExpr, env))
+            }
             let name = call.arguments.first(where: { $0.label?.text == "systemName" })?.expression
                 ?? call.arguments.first?.expression
             return RenderNode(kind: .image, systemName: name.flatMap { exprString($0, env) })
@@ -480,6 +496,20 @@ public struct SwiftViewInterpreter: Sendable {
             return clause.parameters.map { $0.firstName.text }
         }
         return []
+    }
+
+    /// Captures a `.dropDestination` closure as a ``DropSpec``: the first
+    /// closure parameter is bound to ``DropSpec/payloadToken`` and the second
+    /// (if declared) to ``DropSpec/zoneToken``, so the recorded commands carry
+    /// placeholders the host fills in when the drop lands.
+    private func parseDrop(_ closure: ClosureExprSyntax, _ env: EvalEnvironment) -> DropSpec {
+        let names = closureParameterNames(closure)
+        let scope = env.makeChild()
+        if let payloadName = names.first { scope.define(payloadName, .string(DropSpec.payloadToken)) }
+        scope.define("$0", .string(DropSpec.payloadToken))
+        if names.count >= 2 { scope.define(names[1], .string(DropSpec.zoneToken)) }
+        scope.define("$1", .string(DropSpec.zoneToken))
+        return DropSpec(action: parseAction(closure, scope), usesZones: names.count >= 2)
     }
 
     /// Captures the commands in a `Button` action closure (currently

@@ -5276,6 +5276,18 @@ class TerminalController {
         let afterSurfaceId = v2UUID(params, "after_surface_id")
         let explicitIndex = v2Int(params, "index")
         let focus = v2FocusAllowed(requested: v2Bool(params, "focus") ?? false)
+        // Optional `split` (left/right/up/down): instead of joining the
+        // destination pane as a tab, the surface lands in a new split on that
+        // side of it. `center` (or absent) keeps the plain tab move, so a
+        // sidebar drop zone can pass its zone straight through.
+        let rawSplit = v2String(params, "split")?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var splitDirection: SplitDirection?
+        if let rawSplit, !rawSplit.isEmpty, rawSplit != "center" {
+            guard let parsed = parseSplitDirection(rawSplit) else {
+                return .err(code: "invalid_params", message: "split must be one of left, right, up, down, center", data: ["split": rawSplit])
+            }
+            splitDirection = parsed
+        }
 
         let anchorCount = (beforeSurfaceId != nil ? 1 : 0) + (afterSurfaceId != nil ? 1 : 0)
         if anchorCount > 1 {
@@ -5358,6 +5370,27 @@ class TerminalController {
             }
 
             if targetWorkspace.id == sourceWorkspace.id {
+                if let splitDirection {
+                    // Splitting a pane by its only surface would leave an
+                    // "Empty" placeholder behind; refuse instead.
+                    if sourcePane == destinationPane,
+                       sourceWorkspace.bonsplitController.tabs(inPane: destinationPane).count <= 1 {
+                        result = .err(code: "invalid_params", message: "Cannot split a pane by moving its only surface", data: nil)
+                        return
+                    }
+                    guard let newPane = splitDestinationPane(
+                        in: sourceWorkspace, surfaceId: surfaceId, besides: destinationPane,
+                        direction: splitDirection, focus: focus
+                    ) else {
+                        result = .err(code: "internal_error", message: "Failed to split destination pane", data: nil)
+                        return
+                    }
+                    result = .ok(v2SurfaceMovePayload(
+                        windowId: targetWindowId, workspaceId: targetWorkspace.id,
+                        paneId: newPane.id, surfaceId: surfaceId
+                    ))
+                    return
+                }
                 guard sourceWorkspace.moveSurface(panelId: surfaceId, toPane: destinationPane, atIndex: targetIndex, focus: focus) else {
                     result = .err(code: "internal_error", message: "Failed to move surface", data: nil)
                     return
@@ -5392,25 +5425,64 @@ class TerminalController {
                 return
             }
 
+            // Cross-workspace split: the surface first joins the destination
+            // pane (above), then moves out of it into a new split beside it.
+            // If the split is refused the surface stays as a tab there, which
+            // the returned pane id reflects.
+            var finalPane = destinationPane
+            if let splitDirection,
+               let newPane = splitDestinationPane(
+                   in: targetWorkspace, surfaceId: surfaceId, besides: destinationPane,
+                   direction: splitDirection, focus: focus
+               ) {
+                finalPane = newPane
+            }
+
             if focus {
                 _ = app.focusMainWindow(windowId: targetWindowId)
                 setActiveTabManager(targetTabManager)
                 targetTabManager.selectWorkspace(targetWorkspace)
             }
 
-            result = .ok([
-                "window_id": targetWindowId.uuidString,
-                "window_ref": v2Ref(kind: .window, uuid: targetWindowId),
-                "workspace_id": targetWorkspace.id.uuidString,
-                "workspace_ref": v2Ref(kind: .workspace, uuid: targetWorkspace.id),
-                "pane_id": destinationPane.id.uuidString,
-                "pane_ref": v2Ref(kind: .pane, uuid: destinationPane.id),
-                "surface_id": surfaceId.uuidString,
-                "surface_ref": v2Ref(kind: .surface, uuid: surfaceId)
-            ])
+            result = .ok(v2SurfaceMovePayload(
+                windowId: targetWindowId, workspaceId: targetWorkspace.id,
+                paneId: finalPane.id, surfaceId: surfaceId
+            ))
         }
 
         return result
+    }
+
+    /// Moves `surfaceId` (already in `workspace`) into a new split on
+    /// `direction`'s side of `pane`, returning the new pane.
+    private func splitDestinationPane(
+        in workspace: Workspace,
+        surfaceId: UUID,
+        besides pane: PaneID,
+        direction: SplitDirection,
+        focus: Bool
+    ) -> PaneID? {
+        guard let tabId = workspace.surfaceIdFromPanelId(surfaceId) else { return nil }
+        return workspace.splitPaneMovingTab(
+            pane,
+            orientation: direction.orientation,
+            movingTab: tabId,
+            insertFirst: direction.insertFirst,
+            focusIntent: focus ? .activateMovedTab : .preserveCurrent
+        )
+    }
+
+    private func v2SurfaceMovePayload(windowId: UUID, workspaceId: UUID, paneId: UUID, surfaceId: UUID) -> [String: Any] {
+        [
+            "window_id": windowId.uuidString,
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "workspace_id": workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: workspaceId),
+            "pane_id": paneId.uuidString,
+            "pane_ref": v2Ref(kind: .pane, uuid: paneId),
+            "surface_id": surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: surfaceId)
+        ]
     }
 
     func v2DebugTerminals(params _: [String: Any]) -> V2CallResult {

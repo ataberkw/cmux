@@ -58,6 +58,10 @@ public struct CustomSidebarView: View {
             contentInsets: contentInsets,
             dataContext: dataContext
         )
+        // `.draggable` / `.dropDestination` nodes: drag-and-drop runs
+        // geometrically here (the render worker drives the same session from
+        // forwarded pointer events instead).
+        .sidebarDragInteraction(dispatch: dispatch)
         .onAppear { model.start() }
         .onDisappear { model.stop() }
         // Re-interpret whenever the live data changes or the source

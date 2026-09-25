@@ -84,3 +84,4 @@ Not yet supported (write the natural Swift anyway; it degrades gracefully): `@St
 - Blank or partial render: run `cmux sidebar validate <name>`. Errors show inline in the sidebar with the failing location; a broken save keeps the last working render on screen, so re-save after fixing.
 - Rows not tappable: wrap the row in `Button(action: { cmux(...) }) { ... }` or add `.onTapGesture { cmux(...) }`.
 - Reorder not persisting: use `Reorderable(data, move: "workspace.reorder")`, not `List`/`.onMove`/`.draggable`.
+- Moving things between views (e.g. a pane to another workspace): `.draggable(value)` on the source and `.dropDestination { value, zone in cmux(...) }` on the target; `zone` is `left/right/up/down/center`, and `surface.move` takes it as `split:`.
