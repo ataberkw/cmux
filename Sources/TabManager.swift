@@ -2599,6 +2599,7 @@ class TabManager: ObservableObject {
               let tab = tabs.first(where: { $0.id == selectedId }) else { return }
         reconcileFocusedPanelFromFirstResponderForKeyboard()
         guard let focusedPanelId = shortcutCloseTargetPanelId(in: tab) else { return }
+        if tab.closeRemoteTmuxPaneIfOwned(panelId: focusedPanelId, source: .shortcut) { return }
         closePanelWithConfirmation(tab: tab, panelId: focusedPanelId)
     }
 

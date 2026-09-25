@@ -1,5 +1,6 @@
 import Bonsplit
 import CmuxPanes
+import CmuxSettings
 import CmuxWorkspaces
 import Foundation
 
@@ -64,6 +65,34 @@ extension Workspace {
             || remoteTmuxControlPanes(containerPanelID: location.containerPanelID).count > 1
         else { return nil }
         return location.requestToggleZoom()
+    }
+
+    /// Closes the active tmux pane when `panelId` renders a mirrored multi-pane
+    /// tmux window (the container) or one of its panes. The whole window lives
+    /// in ONE outer tab, whose close sends kill-window and takes every pane
+    /// down with it, so the nested pane tree gets first refusal. Returns `false`
+    /// when tmux has no inner pane to close (not remote, or a lone pane) so the
+    /// caller keeps the tab-level meaning.
+    func closeRemoteTmuxPaneIfOwned(panelId: UUID, source: CloseTabCloseSource) -> Bool {
+        let location: RemoteTmuxControlPaneLocation?
+        switch remoteTmuxControlSurfaceTarget(surfaceID: panelId) {
+        case .pane(let paneLocation):
+            location = paneLocation
+        case .unresolvedMirror:
+            location = activeRemoteTmuxControlPane(containerPanelID: panelId)
+        case .notRemote:
+            return false
+        }
+        guard let location,
+              let windowMirror = location.windowMirror,
+              remoteTmuxControlPanes(containerPanelID: location.containerPanelID).count > 1
+        else { return false }
+        requestRemoteTmuxPaneClose(
+            windowMirror: windowMirror,
+            tmuxPaneId: location.pane.tmuxPaneID,
+            source: source
+        )
+        return true
     }
 
     /// Moves the focused surface into another pane, optionally creating a

@@ -9187,11 +9187,15 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
     /// command slip through), falling back to the cached state when the link is
     /// down. The pane is removed by the resulting `%layout-change` (or
     /// `%window-close` for the window's last pane), never locally.
-    func requestRemoteTmuxPaneClose(windowMirror: RemoteTmuxWindowMirror, tmuxPaneId: Int) {
+    func requestRemoteTmuxPaneClose(
+        windowMirror: RemoteTmuxWindowMirror,
+        tmuxPaneId: Int,
+        source: CloseTabCloseSource = .tabCloseButton
+    ) {
         // Close warnings disabled → even an active command wouldn't confirm;
         // kill with no added round trip.
         guard CloseTabWarningStore(defaults: closeTabWarningDefaults).shouldConfirmClose(
-            requiresConfirmation: true, source: .tabCloseButton
+            requiresConfirmation: true, source: source
         ) else {
             windowMirror.requestKillPane(tmuxPaneId)
             return
@@ -9208,7 +9212,7 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
                 let state = states?[tmuxPaneId] ?? windowMirror.paneForegroundState(tmuxPaneId)
                 if CloseTabWarningStore(defaults: closeTabWarningDefaults).shouldConfirmClose(
                     requiresConfirmation: state?.hasActiveCommand ?? false,
-                    source: .tabCloseButton
+                    source: source
                 ) {
                     // No manager → no way to ask → refuse the destructive kill rather
                     // than falling through to an unconfirmed one (only reachable in
