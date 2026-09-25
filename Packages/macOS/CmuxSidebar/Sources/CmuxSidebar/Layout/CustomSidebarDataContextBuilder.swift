@@ -138,9 +138,17 @@ public struct CustomSidebarDataContextBuilder {
         }
         if let container = workspace.containerFrame {
             fields["containerFrame"] = .object([
+                "x": .double(container.x),
+                "y": .double(container.y),
                 "width": .double(container.width),
                 "height": .double(container.height),
             ])
+        }
+        if let layoutTree = workspace.layoutTree {
+            fields["layout"] = layoutTree
+        }
+        if !workspace.folderIdentities.isEmpty {
+            fields["folders"] = .array(workspace.folderIdentities)
         }
         return .object(fields)
     }

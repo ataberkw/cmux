@@ -2600,6 +2600,14 @@ class TerminalController {
             return v2Result(id: id, self.v2WorkspaceCloudVMBind(params: params))
         case "workspace.set_auto_title":
             return v2Result(id: id, self.v2WorkspaceSetAutoTitle(params: params))
+        case "workspace.set_folder_emoji":
+            return v2Result(id: id, self.v2WorkspaceSetFolderEmoji(params: params))
+        case "workspace.rename_folder":
+            return v2Result(id: id, self.v2WorkspaceRenameFolder(params: params))
+        case "workspace.pick_folder_image":
+            return v2Result(id: id, self.v2WorkspacePickFolderImage(params: params))
+        case "workspace.clear_folder_icon":
+            return v2Result(id: id, self.v2WorkspaceClearFolderIcon(params: params))
 
         // Settings/session/feedback: session.restore_previous, settings.open, and
         // feedback.open handled by ControlCommandCoordinator.
@@ -2896,6 +2904,10 @@ class TerminalController {
             "workspace.prompt_submit",
             "workspace.rename",
             "workspace.set_auto_title",
+            "workspace.set_folder_emoji",
+            "workspace.rename_folder",
+            "workspace.pick_folder_image",
+            "workspace.clear_folder_icon",
             "workspace.group.list",
             "workspace.group.create",
             "workspace.group.ungroup",
@@ -4223,6 +4235,76 @@ class TerminalController {
     /// setting state without writing, which lets hook processes honor
     /// mid-session toggles. `panel_id` accepts either a panel UUID or a
     /// surface UUID.
+    /// `workspace.set_folder_emoji` — writes `{iconType:"emoji", icon}` into
+    /// `<dir>/.cmux/profile.json` (the Split Map sidebar's folder identity).
+    private func v2WorkspaceSetFolderEmoji(params: [String: Any]) -> V2CallResult {
+        guard let dir = v2String(params, "dir"), !dir.isEmpty else {
+            return .err(code: "invalid_params", message: "Missing or invalid dir", data: nil)
+        }
+        guard let emoji = v2String(params, "emoji"), !emoji.isEmpty else {
+            return .err(code: "invalid_params", message: "Missing or invalid emoji", data: nil)
+        }
+        let ok = v2MainSync { CmuxFolderProfileStore.setProfile(dir: dir, emoji: emoji) }
+        return ok
+            ? .ok(["written": true])
+            : .err(code: "write_failed", message: "Could not write .cmux/profile.json", data: nil)
+    }
+
+    /// `workspace.rename_folder` — prompts for a name and writes it to the
+    /// folder profile.
+    private func v2WorkspaceRenameFolder(params: [String: Any]) -> V2CallResult {
+        guard let dir = v2String(params, "dir"), !dir.isEmpty else {
+            return .err(code: "invalid_params", message: "Missing or invalid dir", data: nil)
+        }
+        let written = v2MainSync { () -> Bool in
+            let current = CmuxFolderProfileStore.identity(forDir: dir).name
+            let alert = NSAlert()
+            alert.messageText = "Rename folder"
+            alert.informativeText = dir
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+            field.stringValue = current
+            alert.accessoryView = field
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Cancel")
+            NSApp.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else { return false }
+            let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CmuxFolderProfileStore.setProfile(dir: dir, name: name.isEmpty ? dir : name)
+        }
+        return .ok(["written": written])
+    }
+
+    /// `workspace.pick_folder_image` — opens an image picker, shrinks +
+    /// compresses the pick, and writes it as the folder icon.
+    private func v2WorkspacePickFolderImage(params: [String: Any]) -> V2CallResult {
+        guard let dir = v2String(params, "dir"), !dir.isEmpty else {
+            return .err(code: "invalid_params", message: "Missing or invalid dir", data: nil)
+        }
+        let written = v2MainSync { () -> Bool in
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = false
+            panel.canChooseDirectories = false
+            panel.canChooseFiles = true
+            panel.title = "Choose a folder icon"
+            NSApp.activate(ignoringOtherApps: true)
+            guard panel.runModal() == .OK, let url = panel.url, let image = NSImage(contentsOf: url)
+            else { return false }
+            return CmuxFolderProfileStore.setImage(dir: dir, image: image)
+        }
+        return .ok(["written": written])
+    }
+
+    /// `workspace.clear_folder_icon` — removes the folder's emoji/image icon.
+    private func v2WorkspaceClearFolderIcon(params: [String: Any]) -> V2CallResult {
+        guard let dir = v2String(params, "dir"), !dir.isEmpty else {
+            return .err(code: "invalid_params", message: "Missing or invalid dir", data: nil)
+        }
+        let ok = v2MainSync { CmuxFolderProfileStore.clearIcon(dir: dir) }
+        return ok
+            ? .ok(["written": true])
+            : .err(code: "write_failed", message: "Could not update .cmux/profile.json", data: nil)
+    }
+
     private func v2WorkspaceSetAutoTitle(params: [String: Any]) -> V2CallResult {
         let enabled = AutomationCatalogSection().workspaceAutoNaming.value(in: .standard)
         if v2Bool(params, "probe") == true {

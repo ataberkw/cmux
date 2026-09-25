@@ -40,18 +40,26 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         }
     }
 
-    /// The pixel size of the dock container the pane frames are laid out in,
-    /// projected to the `workspaces[i].containerFrame` object ({width,
-    /// height}). Divide each ``CustomSidebarSurfaceSnapshot/Frame`` by these to
-    /// normalize the split layout to any drawing size.
+    /// The pixel frame of the dock container the pane frames are laid out in,
+    /// projected to the `workspaces[i].containerFrame` object ({x, y, width,
+    /// height}). The pane ``CustomSidebarSurfaceSnapshot/Frame`` values are in
+    /// the same window-absolute space as this container's origin, so normalize
+    /// a pane to any drawing size with
+    /// `(pane.x - container.x) / container.width` (and likewise for y/height).
     public struct ContainerSize: Sendable, Equatable {
+        /// The container origin x, in window pixels.
+        public let x: Double
+        /// The container origin y, in window pixels.
+        public let y: Double
         /// The container width, in pixels.
         public let width: Double
         /// The container height, in pixels.
         public let height: Double
 
-        /// Creates a container size.
-        public init(width: Double, height: Double) {
+        /// Creates a container frame.
+        public init(x: Double, y: Double, width: Double, height: Double) {
+            self.x = x
+            self.y = y
             self.width = width
             self.height = height
         }
@@ -110,6 +118,19 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
     /// The dock container size the pane frames are laid out in
     /// (`workspaces[i].containerFrame`); omitted when `nil`.
     public let containerFrame: ContainerSize?
+    /// The recursive split-layout tree (`workspaces[i].layout`), already
+    /// projected to interpreter values: each node is either a split
+    /// (`{kind:"split", orientation:"horizontal"|"vertical", ratio, first,
+    /// second}`) or a pane leaf (`{kind:"pane", focused, surfaceId, title}`).
+    /// Lets a sidebar draw the split schema with nested stacks. `nil` on stock
+    /// cmux and when the workspace has no live layout.
+    public let layoutTree: SwiftValue?
+    /// The distinct portable folder identities of this workspace's panes
+    /// (`workspaces[i].folders`), each `{dir, name, emoji?, image?}` resolved
+    /// from `<dir>/.cmux/profile.json` (falling back to the folder basename).
+    /// Folders that resolve to the same identity are merged. Empty on stock
+    /// cmux and when no pane has a directory.
+    public let folderIdentities: [SwiftValue]
 
     /// Creates a workspace snapshot from already-resolved leaf values.
     public init(
@@ -135,7 +156,9 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         remote: Remote?,
         agents: [CustomSidebarAgentSnapshot] = [],
         groupId: UUID? = nil,
-        containerFrame: ContainerSize? = nil
+        containerFrame: ContainerSize? = nil,
+        layoutTree: SwiftValue? = nil,
+        folderIdentities: [SwiftValue] = []
     ) {
         self.groupId = groupId
         self.id = id
@@ -160,5 +183,7 @@ public struct CustomSidebarWorkspaceSnapshot: Sendable, Equatable {
         self.remote = remote
         self.agents = agents
         self.containerFrame = containerFrame
+        self.layoutTree = layoutTree
+        self.folderIdentities = folderIdentities
     }
 }
