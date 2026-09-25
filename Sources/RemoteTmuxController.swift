@@ -774,6 +774,16 @@ final class RemoteTmuxController {
     func sessionMirror(workspaceId: UUID) -> RemoteTmuxSessionMirror? {
         sessionMirrors.values.first { $0.mirroredWorkspaceId == workspaceId }
     }
+
+    /// Detaches the session mirrored into `workspaceId` through the explicit
+    /// detach path: the mirror workspace closes and the remote session stays
+    /// alive for a later reattach. Returns `false` when no mirror owns it.
+    @discardableResult
+    func detachMirror(workspaceId: UUID) -> Bool {
+        guard let mirror = sessionMirror(workspaceId: workspaceId) else { return false }
+        detach(host: mirror.host, sessionName: mirror.sessionName)
+        return true
+    }
     /// Detaches a control client and removes its mirror workspace while leaving
     /// the remote session alive (#7364). Internal callers that already removed the
     /// mirror keep the low-level stop-only path, preserving their kill semantics.

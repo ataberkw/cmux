@@ -121,6 +121,17 @@ extension Workspace {
         }
     }
 
+    /// Detaches this workspace's mirrored tmux session (the window tab's detach
+    /// button), keeping the session alive on the remote. Shares the
+    /// `remote.tmux.detach` path, so the workspace closes the same way a CLI
+    /// detach closes it.
+    @discardableResult
+    func detachRemoteTmuxSession() -> Bool {
+        guard isRemoteTmuxMirror,
+              let controller = AppDelegate.shared?.remoteTmuxController else { return false }
+        return controller.detachMirror(workspaceId: id)
+    }
+
     /// Resolves every mirror-owned surface identity without conflating an
     /// unresolved mirror with an ordinary workspace surface.
     func remoteTmuxControlSurfaceTarget(surfaceID: UUID) -> RemoteTmuxControlSurfaceTarget {

@@ -1,3 +1,4 @@
+import Bonsplit
 import CmuxRemoteSession
 import CmuxSettings
 import Foundation
@@ -42,6 +43,25 @@ extension RemoteTmuxMirrorCLIObservabilityTests {
 
             let commands = try closeRoutingControlCommands(harness)
             #expect(!commands.contains("kill-pane"))
+        }
+    }
+
+    /// Detach is session-level, so only the tmux window tab carries the
+    /// detach button; per-pane headers keep just their close button.
+    @Test func detachButtonIsOnWindowTabOnlyNotOnPaneHeaders() throws {
+        let harness = try Harness()
+        defer { harness.tearDown() }
+        let windowPanel = try #require(harness.workspace.addRemoteTmuxDisplayPane(
+            remotePaneId: 11,
+            onInput: { _ in }
+        ))
+        let windowTabID = try #require(harness.workspace.surfaceIdFromPanelId(windowPanel.id))
+        #expect(harness.workspace.bonsplitController.tab(windowTabID)?.showsDetachButton == true)
+
+        let paneController = harness.mirror.bonsplitController
+        for tmuxPaneID in [11, 22] {
+            let paneTabID = try #require(harness.mirror.tabIdByPaneId[tmuxPaneID])
+            #expect(paneController.tab(paneTabID)?.showsDetachButton == false)
         }
     }
 

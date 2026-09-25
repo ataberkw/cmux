@@ -9163,6 +9163,7 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
                 title: title,
                 icon: "rectangle.connected.to.line.below",
                 kind: SurfaceKind.terminal.rawValue,
+                showsDetachButton: true,
                 inPane: paneId
             ) else {
                 panels.removeValue(forKey: newPanel.id)
@@ -14596,6 +14597,8 @@ extension Workspace: BonsplitDelegate {
              .forkConversationNewTab,
              .forkConversationNewWorkspace:
             handleForkConversationContextAction(action, for: tab, inPane: pane)
+        case .detachSession:
+            if !detachRemoteTmuxSession() { NSSound.beep() }
         @unknown default:
             break
         }
