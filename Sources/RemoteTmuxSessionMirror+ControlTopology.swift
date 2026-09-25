@@ -349,6 +349,12 @@ extension RemoteTmuxSessionMirror {
         return connection.send("kill-pane -t @\(windowID).%\(tmuxPaneID)")
     }
 
+    func requestToggleZoom(_ tmuxPaneID: Int) -> Bool {
+        guard let windowID = windowIdByPane[tmuxPaneID],
+              let windowMirror = windowMirrorByWindowId[windowID] else { return false }
+        return windowMirror.requestToggleZoom(tmuxPaneID)
+    }
+
     private func cleanupControlPaneIdentity(tmuxPaneID: Int) {
         guard let paneID = controlPaneIdByPane[tmuxPaneID] else { return }
         let surfaceID = controlSurfaceIdByPane.removeValue(forKey: tmuxPaneID)

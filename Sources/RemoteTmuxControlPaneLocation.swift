@@ -88,4 +88,8 @@ struct RemoteTmuxControlPaneLocation {
     func requestKill() -> Bool {
         owner.requestKillPane(pane.tmuxPaneID)
     }
+
+    func requestToggleZoom() -> Bool {
+        owner.requestToggleZoom(pane.tmuxPaneID)
+    }
 }

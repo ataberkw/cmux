@@ -258,4 +258,11 @@ extension RemoteTmuxWindowMirror {
     func requestKillPane(_ tmuxPaneID: Int) -> Bool {
         sendControlCommand("kill-pane -t @\(windowId).%\(tmuxPaneID)")
     }
+
+    /// Toggles tmux zoom on the addressed pane. The zoomed (or restored) tree
+    /// arrives through the next layout publication's `Z` flag.
+    @discardableResult
+    func requestToggleZoom(_ tmuxPaneID: Int) -> Bool {
+        sendControlCommand("resize-pane -Z -t @\(windowId).%\(tmuxPaneID)")
+    }
 }

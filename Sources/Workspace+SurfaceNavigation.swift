@@ -42,6 +42,30 @@ extension Workspace {
         }
     }
 
+    /// Toggles tmux zoom when `panelId` renders a mirrored tmux window (the
+    /// container) or one of its panes. Like ``moveFocus(direction:)``, the
+    /// nested pane tree gets first refusal: the whole window lives in ONE outer
+    /// pane, so the workspace zoom has nothing to act on. Returns `nil` when
+    /// tmux has nothing to zoom (not remote, or a lone unzoomed pane) so the
+    /// caller keeps the workspace-level meaning.
+    func toggleRemoteTmuxPaneZoomIfOwned(panelId: UUID) -> Bool? {
+        let location: RemoteTmuxControlPaneLocation?
+        switch remoteTmuxControlSurfaceTarget(surfaceID: panelId) {
+        case .pane(let paneLocation):
+            location = paneLocation
+        case .unresolvedMirror:
+            location = activeRemoteTmuxControlPane(containerPanelID: panelId)
+        case .notRemote:
+            return nil
+        }
+        guard let location else { return nil }
+        let isZoomed = location.windowMirror?.zoomed == true
+        guard isZoomed
+            || remoteTmuxControlPanes(containerPanelID: location.containerPanelID).count > 1
+        else { return nil }
+        return location.requestToggleZoom()
+    }
+
     /// Moves the focused surface into another pane, optionally creating a
     /// directional split when no adjacent pane exists.
     @discardableResult

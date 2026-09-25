@@ -11371,6 +11371,7 @@ final class Workspace: Identifiable, ObservableObject, FilePreviewTabMetadataHos
 
     @discardableResult
     func toggleSplitZoom(panelId: UUID) -> Bool {
+        if let handled = toggleRemoteTmuxPaneZoomIfOwned(panelId: panelId) { return handled }
         let wasSplitZoomed = bonsplitController.isSplitZoomed
         guard let paneId = paneId(forPanelId: panelId) else { return false }
         guard bonsplitController.togglePaneZoom(inPane: paneId) else { return false }
