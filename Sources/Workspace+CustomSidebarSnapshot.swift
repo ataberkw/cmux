@@ -1,6 +1,7 @@
 import AppKit
 import Bonsplit
 import CmuxAgentChat
+import CmuxRemoteSession
 import CmuxSidebar
 import CmuxSwiftRender
 import Foundation
@@ -87,6 +88,14 @@ extension Workspace {
             lastActivityBySurfaceId: lastActivityBySurfaceId,
             panelIdForSurfaceId: { raw in
                 UUID(uuidString: raw).flatMap { self.panelIdFromSurfaceId(TabID(uuid: $0)) }?.uuidString
+            },
+            nestedTreeForPanelId: { raw, containerFocused in
+                UUID(uuidString: raw).flatMap {
+                    self.customSidebarRemoteTmuxLayoutTreeValue(
+                        containerPanelId: $0,
+                        containerFocused: containerFocused
+                    )
+                }
             }
         )
         // Portable per-folder identities (name + emoji/image from
@@ -249,7 +258,8 @@ extension Workspace {
         statusBySurfaceId: [String: String],
         kindBySurfaceId: [String: String],
         lastActivityBySurfaceId: [String: Int],
-        panelIdForSurfaceId: (String) -> String?
+        panelIdForSurfaceId: (String) -> String?,
+        nestedTreeForPanelId: (String, Bool) -> SwiftValue?
     ) -> SwiftValue {
         switch node {
         case let .split(split):
@@ -261,12 +271,14 @@ extension Workspace {
                     split.first, focusedPaneId: focusedPaneId,
                     statusBySurfaceId: statusBySurfaceId, kindBySurfaceId: kindBySurfaceId,
                     lastActivityBySurfaceId: lastActivityBySurfaceId,
-                    panelIdForSurfaceId: panelIdForSurfaceId),
+                    panelIdForSurfaceId: panelIdForSurfaceId,
+                    nestedTreeForPanelId: nestedTreeForPanelId),
                 "second": customSidebarLayoutTreeValue(
                     split.second, focusedPaneId: focusedPaneId,
                     statusBySurfaceId: statusBySurfaceId, kindBySurfaceId: kindBySurfaceId,
                     lastActivityBySurfaceId: lastActivityBySurfaceId,
-                    panelIdForSurfaceId: panelIdForSurfaceId),
+                    panelIdForSurfaceId: panelIdForSurfaceId,
+                    nestedTreeForPanelId: nestedTreeForPanelId),
             ])
         case let .pane(pane):
             var fields: [String: SwiftValue] = [
@@ -280,6 +292,11 @@ extension Workspace {
             if let selectedTab {
                 fields["surfaceId"] = .string(selectedTab.id)
                 if let panelId = panelIdForSurfaceId(selectedTab.id) {
+                    // A mirrored tmux window renders its own pane tree inside
+                    // this one cell; draw that tree instead of a single leaf.
+                    if let nested = nestedTreeForPanelId(panelId, pane.id == focusedPaneId) {
+                        return nested
+                    }
                     fields["panelId"] = .string(panelId)
                 }
                 fields["title"] = .string(selectedTab.title)
@@ -295,6 +312,99 @@ extension Workspace {
             }
             return .object(fields)
         }
+    }
+
+    /// Expands a mirrored tmux window's container cell into that window's own
+    /// pane tree, so a sidebar draws the tmux split schema instead of one cell.
+    /// Reads the BASE layout (every pane, even while one is zoomed) and marks
+    /// the zoomed pane. Leaves carry `nested: true`: they live inside one cmux
+    /// surface and cannot be moved between cmux panes, but `surfaceId` still
+    /// focuses them through `surface.focus`.
+    private func customSidebarRemoteTmuxLayoutTreeValue(
+        containerPanelId: UUID,
+        containerFocused: Bool
+    ) -> SwiftValue? {
+        guard let mirror = remoteTmuxWindowMirror(forPanelId: containerPanelId) else { return nil }
+        let panes = Dictionary(
+            remoteTmuxControlPanes(containerPanelID: containerPanelId).map {
+                ($0.pane.tmuxPaneID, $0.pane)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard !panes.isEmpty else { return nil }
+        return Self.customSidebarRemoteTmuxNodeValue(
+            mirror.layout,
+            panes: panes,
+            zoomedPaneId: mirror.zoomed ? mirror.visibleLayout?.paneIDsInOrder.first : nil,
+            containerFocused: containerFocused
+        )
+    }
+
+    private static func customSidebarRemoteTmuxNodeValue(
+        _ node: RemoteTmuxLayoutNode,
+        panes: [Int: RemoteTmuxControlPane],
+        zoomedPaneId: Int?,
+        containerFocused: Bool
+    ) -> SwiftValue {
+        switch node.content {
+        case let .pane(tmuxPaneId):
+            var fields: [String: SwiftValue] = [
+                "kind": .string("pane"),
+                "nested": .bool(true),
+                "focused": .bool(containerFocused && panes[tmuxPaneId]?.isFocused == true),
+            ]
+            if tmuxPaneId == zoomedPaneId {
+                fields["zoomed"] = .bool(true)
+            }
+            if let pane = panes[tmuxPaneId] {
+                fields["paneId"] = .string(pane.paneID.id.uuidString)
+                fields["surfaceId"] = .string(pane.panel.id.uuidString)
+                fields["panelId"] = .string(pane.panel.id.uuidString)
+                fields["title"] = .string(pane.title)
+            }
+            return .object(fields)
+        case let .horizontal(children):
+            return customSidebarRemoteTmuxSplitValue(
+                children[...], horizontal: true,
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+            )
+        case let .vertical(children):
+            return customSidebarRemoteTmuxSplitValue(
+                children[...], horizontal: false,
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+            )
+        }
+    }
+
+    /// tmux splits are n-ary while the sidebar schema is binary, so
+    /// `[a, b, c]` folds into `split(a, split(b, c))`, each ratio taken from
+    /// the children's cell extents along the split axis.
+    private static func customSidebarRemoteTmuxSplitValue(
+        _ children: ArraySlice<RemoteTmuxLayoutNode>,
+        horizontal: Bool,
+        panes: [Int: RemoteTmuxControlPane],
+        zoomedPaneId: Int?,
+        containerFocused: Bool
+    ) -> SwiftValue {
+        let node: (RemoteTmuxLayoutNode) -> SwiftValue = {
+            customSidebarRemoteTmuxNodeValue(
+                $0, panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+            )
+        }
+        guard let first = children.first else { return .object(["kind": .string("pane")]) }
+        guard children.count > 1 else { return node(first) }
+        let extent: (RemoteTmuxLayoutNode) -> Int = { horizontal ? $0.width : $0.height }
+        let total = children.reduce(0) { $0 + extent($1) }
+        return .object([
+            "kind": .string("split"),
+            "orientation": .string(horizontal ? "horizontal" : "vertical"),
+            "ratio": .double(total > 0 ? Double(extent(first)) / Double(total) : 0.5),
+            "first": node(first),
+            "second": customSidebarRemoteTmuxSplitValue(
+                children.dropFirst(), horizontal: horizontal,
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+            ),
+        ])
     }
 
     /// Resolves this workspace's distinct pane folders into portable identity
