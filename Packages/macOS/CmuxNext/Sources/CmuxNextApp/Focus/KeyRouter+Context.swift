@@ -48,6 +48,7 @@ extension KeyRouter {
         if case .addressBar = focus.resolved { bits.insert(.omnibarFocused) }
         if facts.pageID == Self.markdownPageID { bits.insert(.markdownFocused) }
         if implied.diff { bits.insert(.diffViewerFocused) }
+        if implied.filePreview { bits.insert(.filePreviewFocused) }
         var context = KeyContext(bits: bits)
         if let page = facts.pageID { context[KeyContext.pageID] = .string(page) }
         context[KeyContext.windowKind] = .string(KeyContext.WindowKindValue.main)
