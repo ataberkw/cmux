@@ -905,6 +905,52 @@
         true,
         false
       ],
+      "agent_refusal" : null,
+      "agent_settable" : true,
+      "consumers" : [
+        "cmux-next"
+      ],
+      "default" : true,
+      "default_label" : null,
+      "group" : {
+        "key" : "settings.shortcuts.hintsGroup",
+        "text" : "Shortcut Hints"
+      },
+      "help" : {
+        "key" : "settings.shortcuts.showModifierHoldHints.help",
+        "text" : "Hold Command or Control for 0.30 seconds to show shortcut hints."
+      },
+      "kept_on_reset_all" : false,
+      "key" : "shortcuts.showModifierHoldHints",
+      "keywords" : [
+        "command",
+        "control",
+        "hold",
+        "hints",
+        "keyboard"
+      ],
+      "kind" : "toggle",
+      "path" : [
+        "shortcuts",
+        "showModifierHoldHints"
+      ],
+      "refuses" : [
+        "true",
+        1,
+        null
+      ],
+      "section" : "keyboard",
+      "title" : {
+        "key" : "settings.shortcuts.showModifierHoldHints",
+        "text" : "Show Shortcuts When Holding a Modifier"
+      },
+      "validation" : "portable"
+    },
+    {
+      "accepts" : [
+        true,
+        false
+      ],
       "agent_refusal" : "network",
       "agent_settable" : false,
       "consumers" : [
@@ -6098,6 +6144,224 @@
     },
     {
       "accepts" : [
+        "#1a2B3c",
+        "#1A2B3C80",
+        "1a2b3c"
+      ],
+      "agent_refusal" : null,
+      "agent_settable" : true,
+      "consumers" : [
+        "cmux-next"
+      ],
+      "default" : null,
+      "default_label" : {
+        "key" : "settings.default.sameAsWindow",
+        "text" : "Same as window"
+      },
+      "group" : {
+        "key" : "settings.group.surfaces",
+        "text" : "Surfaces"
+      },
+      "help" : null,
+      "kept_on_reset_all" : false,
+      "key" : "appearance.surfaces.markdown.color",
+      "keywords" : [
+        "background",
+        "surface",
+        "color",
+        "transparency",
+        "opacity",
+        "markdown"
+      ],
+      "kind" : "color",
+      "path" : [
+        "appearance",
+        "surfaces",
+        "markdown",
+        "color"
+      ],
+      "refuses" : [
+        "red",
+        "#12345",
+        "#1234567",
+        "#12345g",
+        0
+      ],
+      "section" : "appearance",
+      "title" : {
+        "key" : "settings.appearance.surfaces.markdown.color",
+        "text" : "Markdown Editor Color"
+      },
+      "validation" : "portable"
+    },
+    {
+      "accepts" : [
+        0,
+        1,
+        0.5
+      ],
+      "agent_refusal" : null,
+      "agent_settable" : true,
+      "consumers" : [
+        "cmux-next"
+      ],
+      "default" : null,
+      "default_label" : {
+        "key" : "settings.default.windowOpacity",
+        "text" : "Window opacity"
+      },
+      "group" : {
+        "key" : "settings.group.surfaces",
+        "text" : "Surfaces"
+      },
+      "help" : null,
+      "kept_on_reset_all" : false,
+      "key" : "appearance.surfaces.markdown.opacity",
+      "keywords" : [
+        "background",
+        "surface",
+        "color",
+        "transparency",
+        "opacity",
+        "markdown"
+      ],
+      "kind" : "number",
+      "path" : [
+        "appearance",
+        "surfaces",
+        "markdown",
+        "opacity"
+      ],
+      "range" : {
+        "max" : 1,
+        "min" : 0,
+        "placeholder" : 0,
+        "step" : 0.05,
+        "unit" : "fraction"
+      },
+      "refuses" : [
+        -1,
+        2,
+        "1"
+      ],
+      "section" : "appearance",
+      "title" : {
+        "key" : "settings.appearance.surfaces.markdown.opacity",
+        "text" : "Markdown Editor Opacity"
+      },
+      "validation" : "portable"
+    },
+    {
+      "accepts" : [
+        "#1a2B3c",
+        "#1A2B3C80",
+        "1a2b3c"
+      ],
+      "agent_refusal" : null,
+      "agent_settable" : true,
+      "consumers" : [
+        "cmux-next"
+      ],
+      "default" : null,
+      "default_label" : {
+        "key" : "settings.default.sameAsWindow",
+        "text" : "Same as window"
+      },
+      "group" : {
+        "key" : "settings.group.surfaces",
+        "text" : "Surfaces"
+      },
+      "help" : null,
+      "kept_on_reset_all" : false,
+      "key" : "appearance.surfaces.editor.color",
+      "keywords" : [
+        "background",
+        "surface",
+        "color",
+        "transparency",
+        "opacity",
+        "editor"
+      ],
+      "kind" : "color",
+      "path" : [
+        "appearance",
+        "surfaces",
+        "editor",
+        "color"
+      ],
+      "refuses" : [
+        "red",
+        "#12345",
+        "#1234567",
+        "#12345g",
+        0
+      ],
+      "section" : "appearance",
+      "title" : {
+        "key" : "settings.appearance.surfaces.editor.color",
+        "text" : "Code Editor Color"
+      },
+      "validation" : "portable"
+    },
+    {
+      "accepts" : [
+        0,
+        1,
+        0.5
+      ],
+      "agent_refusal" : null,
+      "agent_settable" : true,
+      "consumers" : [
+        "cmux-next"
+      ],
+      "default" : null,
+      "default_label" : {
+        "key" : "settings.default.windowOpacity",
+        "text" : "Window opacity"
+      },
+      "group" : {
+        "key" : "settings.group.surfaces",
+        "text" : "Surfaces"
+      },
+      "help" : null,
+      "kept_on_reset_all" : false,
+      "key" : "appearance.surfaces.editor.opacity",
+      "keywords" : [
+        "background",
+        "surface",
+        "color",
+        "transparency",
+        "opacity",
+        "editor"
+      ],
+      "kind" : "number",
+      "path" : [
+        "appearance",
+        "surfaces",
+        "editor",
+        "opacity"
+      ],
+      "range" : {
+        "max" : 1,
+        "min" : 0,
+        "placeholder" : 0,
+        "step" : 0.05,
+        "unit" : "fraction"
+      },
+      "refuses" : [
+        -1,
+        2,
+        "1"
+      ],
+      "section" : "appearance",
+      "title" : {
+        "key" : "settings.appearance.surfaces.editor.opacity",
+        "text" : "Code Editor Opacity"
+      },
+      "validation" : "portable"
+    },
+    {
+      "accepts" : [
         "arc",
         "native",
         "dot",
@@ -10100,7 +10364,7 @@
       "validation" : "portable"
     }
   ],
-  "schema_hash" : "bfb4cf79865fb9b40e7efbc402dd49d54e1a163fa3fa09c92d0140a35e27f271",
+  "schema_hash" : "abe750986bba5a672a8bb6b1c8d5c42dd3c390770067b07dc30f19e660b6921b",
   "sections" : [
     {
       "id" : "general",
