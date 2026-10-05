@@ -336,19 +336,19 @@ struct RenderNodeView: View {
         }
     }
 
-    /// Renders an image, applying `.resizable()` on the concrete `Image` before
-    /// erasure (it's an `Image` method, unavailable on `AnyView`). `.scaledToFit`/
     /// Renders an `.image` node: a base64 raster (`Image(data:)`) as a
-    /// resizable, aspect-fit image, otherwise the SF Symbol path.
+    /// resizable, aspect-fit image, otherwise the SF Symbol path. The raster
+    /// is decoded once per distinct payload (see ``RenderImageDataCache``).
     private func imageView(_ node: RenderNode) -> AnyView {
         if let base64 = node.imageData,
-           let data = Data(base64Encoded: base64),
-           let nsImage = NSImage(data: data) {
+           let nsImage = RenderImageDataCache.shared.image(forBase64: base64) {
             return AnyView(Image(nsImage: nsImage).resizable().aspectRatio(contentMode: .fit))
         }
         return styledImage(Image(systemName: node.systemName ?? "questionmark.square.dashed"))
     }
 
+    /// Renders an image, applying `.resizable()` on the concrete `Image` before
+    /// erasure (it's an `Image` method, unavailable on `AnyView`). `.scaledToFit`/
     /// `.aspectRatio` from the generic modifier pass then apply on top.
     private func styledImage(_ image: Image) -> AnyView {
         if node.modifiers.contains(where: { $0.name == "resizable" }) {
