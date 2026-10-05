@@ -465,6 +465,7 @@ struct RightSidebarPanelView: View {
                     client: $customSidebarWorkerClient
                 )
             }
+            .cacheExpiryWarningDemand()
             .onDisappear {
                 shutdownCustomSidebarWorkerClient()
             }

@@ -38,6 +38,7 @@ struct CustomSidebarPanelView: View {
                         client: $renderWorkerClient
                     )
                 }
+                .cacheExpiryWarningDemand()
             } else {
                 Color.clear
             }

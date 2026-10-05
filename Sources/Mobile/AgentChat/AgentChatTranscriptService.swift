@@ -132,6 +132,10 @@ final class AgentChatTranscriptService {
     private var failedResolutions: Set<String> = []
     private let fallbackResolutionCoordinator: AgentChatFallbackTranscriptResolutionCoordinator
     private var endedListability = AgentChatEndedTranscriptListabilityCache()
+    /// Called after any session record changes or is removed, once the
+    /// service has handled it. Lets observers react to session activity
+    /// instead of polling ``sessionRecords(workspaceID:)``.
+    var onSessionRecordsChanged: (@MainActor () -> Void)?
 
     private struct ProseTurnState {
         let token: AgentChatProseStreamer.TurnToken
@@ -176,9 +180,11 @@ final class AgentChatTranscriptService {
         )
         registry.onRecordChanged = { [weak self] record, previous in
             self?.handleRecordChange(record, previous: previous)
+            self?.onSessionRecordsChanged?()
         }
         registry.onRecordRemoved = { [weak self] record in
             self?.handleRecordRemoval(record)
+            self?.onSessionRecordsChanged?()
         }
         let proseStreamer = AgentChatProseStreamer(
             emit: { [weak self] frame in self?.emit(frame: frame) },

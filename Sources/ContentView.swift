@@ -12485,6 +12485,7 @@ struct VerticalTabsSidebar: View, Equatable {
                     )
                 }
             }
+            .cacheExpiryWarningDemand()
             .mask(
                 SidebarWorkspaceScrollEdgeFadeMask(
                     topHeight: sidebarTopScrimHeight,

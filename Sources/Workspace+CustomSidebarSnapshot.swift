@@ -13,7 +13,6 @@ extension Workspace {
         selectedId: UUID?,
         unreadCount: Int
     ) -> CustomSidebarWorkspaceSnapshot {
-        CacheExpiryWarningCenter.shared.ensureStarted()
         let focusedPanelId = focusedPanelId
         let firstBranch = sidebarGitBranchesInDisplayOrder().first
         let progress = self.progress.map {

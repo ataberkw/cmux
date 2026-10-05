@@ -525,6 +525,8 @@
 		C0DE62600000000000000001 /* BrowserWindowPortalRegistryNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE62600000000000000002 /* BrowserWindowPortalRegistryNotificationTests.swift */; };
 		C0DE35530000000000000101 /* BundledCLILinkageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE35530000000000000102 /* BundledCLILinkageTests.swift */; };
 		F0ACC0E00000000000000001 /* CachedAgentProcessIdentityValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0ACC0E0000000000000002 /* CachedAgentProcessIdentityValidator.swift */; };
+		A8FE3C8534D9B3E13AD35C3E /* CacheExpiryWarningCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAEBF80DB9C9F74F2906687 /* CacheExpiryWarningCenter.swift */; };
+		9E109E39A7B7528CD84ECF84 /* CacheExpiryWarningCenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D69EDECB19F20845296C06 /* CacheExpiryWarningCenterTests.swift */; };
 		CAFE00000000000000000002 /* CaffeineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFE00000000000000000001 /* CaffeineController.swift */; };
 		CAFE00000000000000000006 /* CaffeineControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFE00000000000000000005 /* CaffeineControllerTests.swift */; };
 		0A0F00560000000000000003 /* CampfireHookNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0F00560000000000000004 /* CampfireHookNotificationTests.swift */; };
@@ -3591,6 +3593,8 @@
 		C0DE62600000000000000002 /* BrowserWindowPortalRegistryNotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWindowPortalRegistryNotificationTests.swift; sourceTree = "<group>"; };
 		C0DE35530000000000000102 /* BundledCLILinkageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledCLILinkageTests.swift; sourceTree = "<group>"; };
 		F0ACC0E0000000000000002 /* CachedAgentProcessIdentityValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAgentProcessIdentityValidator.swift; sourceTree = "<group>"; };
+		9BAEBF80DB9C9F74F2906687 /* CacheExpiryWarningCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheExpiryWarningCenter.swift; sourceTree = "<group>"; };
+		B8D69EDECB19F20845296C06 /* CacheExpiryWarningCenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheExpiryWarningCenterTests.swift; sourceTree = "<group>"; };
 		CAFE00000000000000000001 /* CaffeineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaffeineController.swift; sourceTree = "<group>"; };
 		CAFE00000000000000000005 /* CaffeineControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaffeineControllerTests.swift; sourceTree = "<group>"; };
 		0A0F00560000000000000004 /* CampfireHookNotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampfireHookNotificationTests.swift; sourceTree = "<group>"; };
@@ -7950,6 +7954,7 @@ B8B056D80000000000000002 /* MobileHostIdentityTests.swift */ = {isa = PBXFileRef
 				8382D0028382D0028382D002 /* RemoteTmuxMirrorTeardownReason.swift */,
 				6FC55CC7B42874062C64013A /* RemoteTmuxMirrorTabActivity.swift */,
 				123BF93B1ADC00C5D25EE028 /* RemoteTmuxPaneForegroundState.swift */,
+				9BAEBF80DB9C9F74F2906687 /* CacheExpiryWarningCenter.swift */,
 				8382D0018382D0018382D001 /* RemoteTmuxSplitFocusIntent.swift */,
 				CE24906539C19AB10E4C1C71 /* RemoteTmuxPostAttachAction.swift */,
 				59B80C0A6FC64A59BD274E1E /* RemoteTmuxProcessCancellation.swift */,
@@ -8847,6 +8852,7 @@ B8B056D80000000000000002 /* MobileHostIdentityTests.swift */ = {isa = PBXFileRef
 				7A2E5C0D7A2E5C0D7A2E5C0D /* RemoteTmuxMirrorZoomRoutingTests.swift */,
 				7C1D5E027C1D5E027C1D5E02 /* RemoteTmuxMirrorCloseRoutingTests.swift */,
 				7A2E5C0F7A2E5C0F7A2E5C0F /* RemoteTmuxMirrorSidebarLayoutTreeTests.swift */,
+				B8D69EDECB19F20845296C06 /* CacheExpiryWarningCenterTests.swift */,
 				7910B0017910B0017910B001 /* RemoteTmuxMirrorTopTopologyTests.swift */,
 				A7E1C4D2B3F09865E217D4C1 /* RemoteTmuxMirrorFeedForwardTests.swift */,
 				740600000000000000000009 /* RemoteTmuxMirrorLayoutMathTests.swift */,
@@ -9972,6 +9978,7 @@ B8B056D80000000000000002 /* MobileHostIdentityTests.swift */ = {isa = PBXFileRef
 				A5001534 /* BrowserWindowPortal.swift in Sources */,
 				B1F0C00A0000000000000001 /* BrowserWindowPortalInspectorLayout.swift in Sources */,
 				F0ACC0E00000000000000001 /* CachedAgentProcessIdentityValidator.swift in Sources */,
+				A8FE3C8534D9B3E13AD35C3E /* CacheExpiryWarningCenter.swift in Sources */,
 				CAFE00000000000000000002 /* CaffeineController.swift in Sources */,
 				CAFE58130000000000000001 /* CampfireLaunchArgumentNormalizer.swift in Sources */,
 				CA52B0010000000000000000 /* CanvasAction.swift in Sources */,
@@ -11880,6 +11887,7 @@ B8B056D80000000000000002 /* MobileHostIdentityTests.swift */ = {isa = PBXFileRef
 				C0DE49870000000000000001 /* BrowserWebContentProcessTests.swift in Sources */,
 				C0DE62600000000000000001 /* BrowserWindowPortalRegistryNotificationTests.swift in Sources */,
 				C0DE35530000000000000101 /* BundledCLILinkageTests.swift in Sources */,
+				9E109E39A7B7528CD84ECF84 /* CacheExpiryWarningCenterTests.swift in Sources */,
 				CAFE00000000000000000006 /* CaffeineControllerTests.swift in Sources */,
 				0A0F00560000000000000003 /* CampfireHookNotificationTests.swift in Sources */,
 				0A0F00570000000000000003 /* CampfireSupportProcessBindingTests.swift in Sources */,
