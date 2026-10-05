@@ -33,6 +33,8 @@ public struct SidebarDragSession: Equatable, Sendable {
 
     /// The dragged payload.
     public let payload: String
+    /// The payload's kind; only targets accepting it resolve as a hover.
+    public let kind: String?
     /// The frame of the source region the drag started from.
     public let sourceFrame: CGRect
     /// The pointer's current location.
@@ -47,12 +49,13 @@ public struct SidebarDragSession: Equatable, Sendable {
     ///   - regions: The rendered tree's current drag regions.
     /// - Returns: `nil` when no source region contains `point`.
     public init?(pressedAt point: CGPoint, regions: [SidebarDragRegion]) {
-        let sources = regions.compactMap { region -> (CGRect, String)? in
-            guard case let .source(payload) = region.role, region.frame.contains(point) else { return nil }
-            return (region.frame, payload)
+        let sources = regions.compactMap { region -> (CGRect, String, String?)? in
+            guard case let .source(payload, kind) = region.role, region.frame.contains(point) else { return nil }
+            return (region.frame, payload, kind)
         }
         guard let source = sources.min(by: { Self.area($0.0) < Self.area($1.0) }) else { return nil }
         self.payload = source.1
+        self.kind = DropSpec.normalizedKind(source.2)
         self.sourceFrame = source.0
         self.location = point
         self.hover = nil
@@ -76,16 +79,29 @@ public struct SidebarDragSession: Equatable, Sendable {
     public mutating func move(to point: CGPoint, regions: [SidebarDragRegion]) -> Bool {
         location = point
         let previous = hover
-        hover = resolveHover(at: point, regions: regions)
+        hover = Self.resolveHover(at: point, regions: regions, kind: kind, sourceFrame: sourceFrame)
         return hover != previous
     }
 
-    private func resolveHover(at point: CGPoint, regions: [SidebarDragRegion]) -> Hover? {
-        guard !sourceFrame.contains(point) else { return nil }
+    /// The innermost target at `point` accepting a `kind` payload. A drop
+    /// handed over from another window passes no `sourceFrame`.
+    ///
+    /// A typed target that encloses the drag's own source is skipped: it is
+    /// the source's own container (a workspace header inside a window-wide
+    /// "move workspace here" target), so dropping there would be a no-op.
+    static func resolveHover(
+        at point: CGPoint,
+        regions: [SidebarDragRegion],
+        kind: String?,
+        sourceFrame: CGRect?
+    ) -> Hover? {
+        if let sourceFrame, sourceFrame.contains(point) { return nil }
         let targets = regions.compactMap { region -> (CGRect, DropSpec)? in
             guard case let .target(spec) = region.role,
+                  spec.accepts(payloadKind: kind),
                   region.frame.contains(point),
                   region.frame != sourceFrame else { return nil }
+            if spec.kind != nil, let sourceFrame, region.frame.contains(sourceFrame) { return nil }
             return (region.frame, spec)
         }
         guard let (frame, spec) = targets.min(by: { Self.area($0.0) < Self.area($1.0) }) else {

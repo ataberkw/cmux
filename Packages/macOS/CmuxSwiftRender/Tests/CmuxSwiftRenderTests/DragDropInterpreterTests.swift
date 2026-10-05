@@ -56,6 +56,27 @@ import Testing
         ])
     }
 
+    @Test func kindLabelsTypeSourcesAndTargets() {
+        let source = interp.evaluate("""
+        Text(w.title).draggable(w.id, kind: "workspace")
+        """, state: ["w": .object(["id": .string("W-1"), "title": .string("cmux")])])
+        #expect(source?.dragPayload == "W-1")
+        #expect(source?.dragKind == "workspace")
+
+        let target = interp.evaluate("""
+        VStack { Text("x") }.dropDestination(kind: "workspace") { ws in
+            cmux("workspace.move_to_window", workspace_id: ws, window_id: windowId)
+        }
+        """, state: ["windowId": .string("WIN-2")])
+        #expect(target?.drop?.kind == "workspace")
+        #expect(target?.drop?.resolvedAction(payload: "W-1", zone: .center).commands == [
+            .cmux(method: "workspace.move_to_window", params: ["workspace_id": "W-1", "window_id": "WIN-2"]),
+        ])
+
+        let untyped = interp.evaluate("Rectangle().draggable(\"S\")")
+        #expect(untyped?.dragKind == nil)
+    }
+
     @Test func dragAndTapCoexistOnOneNode() {
         let node = interp.evaluate("""
         Rectangle()

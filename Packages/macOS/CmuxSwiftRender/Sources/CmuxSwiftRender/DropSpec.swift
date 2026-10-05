@@ -27,15 +27,32 @@ public struct DropSpec: Codable, Sendable, Equatable {
     /// Whether the closure declared a zone parameter. Targets without one
     /// always receive ``DropZone/center`` and highlight as a whole.
     public let usesZones: Bool
+    /// The payload kind this target accepts (`.dropDestination(kind:)`),
+    /// matched against the source's `.draggable(_:kind:)`. `nil` is the
+    /// default kind, so untyped sources and targets keep pairing.
+    public let kind: String?
 
     /// Creates a drop spec.
     ///
     /// - Parameters:
     ///   - action: Commands with ``payloadToken`` / ``zoneToken`` placeholders.
     ///   - usesZones: Whether edge zones are distinguished.
-    public init(action: ButtonAction, usesZones: Bool) {
+    ///   - kind: The accepted payload kind; empty means the default kind.
+    public init(action: ButtonAction, usesZones: Bool, kind: String? = nil) {
         self.action = action
         self.usesZones = usesZones
+        self.kind = Self.normalizedKind(kind)
+    }
+
+    /// Whether a payload of `payloadKind` may land here.
+    public func accepts(payloadKind: String?) -> Bool {
+        kind == Self.normalizedKind(payloadKind)
+    }
+
+    /// Treats an empty kind as the default (`nil`) kind.
+    public static func normalizedKind(_ kind: String?) -> String? {
+        guard let kind, !kind.isEmpty else { return nil }
+        return kind
     }
 
     /// The action to run for a concrete drop, with every placeholder in

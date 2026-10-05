@@ -141,12 +141,20 @@ public struct SwiftViewInterpreter: Sendable {
             // `.draggable(value)` makes the view a drag source carrying
             // `value`; `.dropDestination { payload, zone in … }` makes it a
             // drop target whose commands see the dropped payload and zone.
-            if name == "draggable", let payloadExpr = call.arguments.first?.expression {
+            // An optional `kind:` on both pairs only same-kind sources and
+            // targets (a workspace drag never lands on a pane target).
+            if name == "draggable",
+               let payloadExpr = (call.arguments.first(where: { $0.label == nil }) ?? call.arguments.first)?.expression {
                 node.dragPayload = exprString(payloadExpr, env)
+                node.dragKind = call.arguments.first(where: { $0.label?.text == "kind" })
+                    .flatMap { exprString($0.expression, env) }
+                    .flatMap(DropSpec.normalizedKind)
                 return node
             }
             if name == "dropDestination", let closure = call.trailingClosure {
-                node.drop = parseDrop(closure, env)
+                let kind = call.arguments.first(where: { $0.label?.text == "kind" })
+                    .flatMap { exprString($0.expression, env) }
+                node.drop = parseDrop(closure, kind: kind, env)
                 return node
             }
             // Child-bearing modifiers carry their trailing closure's views as a
@@ -502,14 +510,14 @@ public struct SwiftViewInterpreter: Sendable {
     /// closure parameter is bound to ``DropSpec/payloadToken`` and the second
     /// (if declared) to ``DropSpec/zoneToken``, so the recorded commands carry
     /// placeholders the host fills in when the drop lands.
-    private func parseDrop(_ closure: ClosureExprSyntax, _ env: EvalEnvironment) -> DropSpec {
+    private func parseDrop(_ closure: ClosureExprSyntax, kind: String?, _ env: EvalEnvironment) -> DropSpec {
         let names = closureParameterNames(closure)
         let scope = env.makeChild()
         if let payloadName = names.first { scope.define(payloadName, .string(DropSpec.payloadToken)) }
         scope.define("$0", .string(DropSpec.payloadToken))
         if names.count >= 2 { scope.define(names[1], .string(DropSpec.zoneToken)) }
         scope.define("$1", .string(DropSpec.zoneToken))
-        return DropSpec(action: parseAction(closure, scope), usesZones: names.count >= 2)
+        return DropSpec(action: parseAction(closure, scope), usesZones: names.count >= 2, kind: kind)
     }
 
     /// Captures the commands in a `Button` action closure (currently

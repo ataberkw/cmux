@@ -117,4 +117,71 @@ struct SidebarDragSessionTests {
         #expect(session.hover == nil)
         #expect(session.dropAction == nil)
     }
+
+    /// A workspace drag and a pane drag share one sidebar; each lands only on
+    /// targets of its own kind, so a workspace never "moves" as a surface.
+    @Test func kindsPairOnlySameKindSourcesAndTargets() throws {
+        let header = CGRect(x: 0, y: 300, width: 100, height: 20)
+        let moveWorkspace = DropSpec(
+            action: ButtonAction(commands: [
+                .cmux(method: "workspace.move_to_window", params: ["workspace_id": DropSpec.payloadToken, "window_id": "WIN"]),
+            ]),
+            usesZones: false,
+            kind: "workspace"
+        )
+        let typed = regions + [
+            SidebarDragRegion(frame: header, role: .source(payload: "WA", kind: "workspace")),
+            // A typed target on block B, which does not enclose the header.
+            SidebarDragRegion(frame: blockB, role: .target(moveWorkspace)),
+        ]
+
+        var workspaceDrag = try #require(SidebarDragSession(pressedAt: CGPoint(x: 50, y: 310), regions: typed))
+        #expect(workspaceDrag.kind == "workspace")
+        // Over B's pane cell: the pane target ignores it and the enclosing
+        // workspace-kind target takes it.
+        workspaceDrag.move(to: CGPoint(x: 50, y: 190), regions: typed)
+        #expect(workspaceDrag.hover?.targetFrame == blockB)
+        #expect(workspaceDrag.dropAction?.commands == [
+            .cmux(method: "workspace.move_to_window", params: ["workspace_id": "WA", "window_id": "WIN"]),
+        ])
+
+        // A pane drag over block B's header band finds the untyped workspace
+        // target, never the workspace-kind one.
+        var paneDrag = try #require(SidebarDragSession(pressedAt: CGPoint(x: 50, y: 50), regions: typed))
+        #expect(paneDrag.kind == nil)
+        paneDrag.move(to: CGPoint(x: 50, y: 128), regions: typed)
+        #expect(paneDrag.dropAction?.commands.first == .cmux(
+            method: "surface.move", params: ["surface_id": "SA", "workspace_id": "WB"]
+        ))
+    }
+
+    /// A window-wide "move workspace here" target encloses the window's own
+    /// workspace headers. Dropping a header back into its own window is a
+    /// no-op, so that target must not light up for it.
+    @Test func typedTargetEnclosingTheSourceIsSkipped() throws {
+        let header = CGRect(x: 0, y: 300, width: 100, height: 20)
+        let root = CGRect(x: 0, y: 0, width: 100, height: 400)
+        let moveWorkspace = DropSpec(action: ButtonAction(commands: []), usesZones: false, kind: "workspace")
+        let typed = [
+            SidebarDragRegion(frame: header, role: .source(payload: "WA", kind: "workspace")),
+            SidebarDragRegion(frame: root, role: .target(moveWorkspace)),
+        ]
+        var drag = try #require(SidebarDragSession(pressedAt: CGPoint(x: 50, y: 310), regions: typed))
+        drag.move(to: CGPoint(x: 50, y: 100), regions: typed)
+        #expect(drag.hover == nil)
+        // The same target in another window (no source frame) takes it.
+        let remote = SidebarDragSession.resolveHover(
+            at: CGPoint(x: 50, y: 100), regions: typed, kind: "workspace", sourceFrame: nil
+        )
+        #expect(remote?.targetFrame == root)
+    }
+
+    @Test func emptyKindIsTheDefaultKind() {
+        let spec = DropSpec(action: ButtonAction(commands: []), usesZones: false, kind: "")
+        #expect(spec.kind == nil)
+        #expect(spec.accepts(payloadKind: nil))
+        #expect(spec.accepts(payloadKind: ""))
+        #expect(!spec.accepts(payloadKind: "workspace"))
+    }
+
 }

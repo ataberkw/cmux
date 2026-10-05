@@ -98,6 +98,9 @@ public struct RenderNode: Codable, Sendable, Equatable {
     public var reorder: ReorderSpec?
     /// The payload this node carries when dragged (`.draggable(value)`).
     public var dragPayload: String?
+    /// The payload's kind (`.draggable(value, kind: "workspace")`); only a
+    /// target declaring the same kind accepts it. `nil` is the default kind.
+    public var dragKind: String?
     /// What happens when a dragged payload is dropped on this node
     /// (`.dropDestination { payload, zone in … }`).
     public var drop: DropSpec?
@@ -117,6 +120,7 @@ public struct RenderNode: Codable, Sendable, Equatable {
         action: ButtonAction? = nil,
         reorder: ReorderSpec? = nil,
         dragPayload: String? = nil,
+        dragKind: String? = nil,
         drop: DropSpec? = nil
     ) {
         self.kind = kind
@@ -133,6 +137,7 @@ public struct RenderNode: Codable, Sendable, Equatable {
         self.action = action
         self.reorder = reorder
         self.dragPayload = dragPayload
+        self.dragKind = dragKind
         self.drop = drop
     }
 }

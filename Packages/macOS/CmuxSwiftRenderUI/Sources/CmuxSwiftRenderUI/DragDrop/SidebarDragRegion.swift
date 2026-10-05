@@ -11,8 +11,9 @@ import CoreGraphics
 public struct SidebarDragRegion: Equatable, Sendable {
     /// What the region does in a drag.
     public enum Role: Equatable, Sendable {
-        /// Pressing and dragging here starts a drag carrying `payload`.
-        case source(payload: String)
+        /// Pressing and dragging here starts a drag carrying `payload` of
+        /// `kind` (`nil` is the default kind).
+        case source(payload: String, kind: String? = nil)
         /// Releasing a drag here runs the spec's action.
         case target(DropSpec)
     }

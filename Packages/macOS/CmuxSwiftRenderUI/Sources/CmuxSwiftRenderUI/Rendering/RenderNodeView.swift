@@ -23,11 +23,11 @@ struct RenderNodeView: View {
                 view.contentShape(Rectangle())
                     .onTapGesture { dispatch.run(action) }
                     .reportTapTarget(action)
-                    .reportDragRegions(payload: node.dragPayload, drop: node.drop)
+                    .reportDragRegions(payload: node.dragPayload, kind: node.dragKind, drop: node.drop)
             )
         }
         if node.dragPayload != nil || node.drop != nil {
-            return AnyView(view.reportDragRegions(payload: node.dragPayload, drop: node.drop))
+            return AnyView(view.reportDragRegions(payload: node.dragPayload, kind: node.dragKind, drop: node.drop))
         }
         return view
     }

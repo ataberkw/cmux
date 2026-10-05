@@ -429,6 +429,18 @@ and dropping anywhere over the drag's own source does nothing. A target
 without a zone parameter always highlights as a whole. This works in both the
 in-process and remote renderers.
 
+Give a drag a `kind:` to keep different payloads apart. A target accepts only
+sources of the same kind; sources and targets without one pair with each
+other, so existing sidebars keep working:
+
+    Text(w.title)
+        .draggable(w.id, kind: "workspace")
+
+    VStack { … }
+        .dropDestination(kind: "workspace") { ws in
+            cmux("workspace.move_to_window", workspace_id: ws, window_id: windowId)
+        }
+
 ## Two-column (Finder-style) example
 
     HSplitView {
