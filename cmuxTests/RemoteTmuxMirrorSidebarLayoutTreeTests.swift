@@ -77,7 +77,9 @@ extension RemoteTmuxMirrorCLIObservabilityTests {
         #expect(first["title"] == .string("✳ revenue report"))
         #expect(first["status"] == .string("idle"))
         #expect(first["agentKind"] == .string("claude"))
-        #expect(first["lastActivityAt"] != nil)
+        // Already idle at first sight: when its turn ended is unknown, so the
+        // map draws no cache countdown rather than a falsely full one.
+        #expect(first["lastActivityAt"] == nil)
         #expect(second["title"] == .string("⠿ dashboard"))
         #expect(second["status"] == .string("working"))
 
@@ -95,6 +97,14 @@ extension RemoteTmuxMirrorCLIObservabilityTests {
         let leftAgent = try #require(agents.first { $0.surfaceId == left.id })
         #expect(leftAgent.status == "idle")
         #expect(leftAgent.title == "revenue report")
+
+        // A turn seen ending dates the countdown.
+        let turnEnd = Date(timeIntervalSince1970: 1_700_000_000)
+        connection.notePaneTerminalTitle(paneId: 11, rawValue: "⠂ revenue report", now: turnEnd - 30)
+        connection.notePaneTerminalTitle(paneId: 11, rawValue: "✳ revenue report", now: turnEnd)
+        harness.mirror.reconcile(layout: harness.mirror.layout)
+        let afterTurn = try #require(objectFields(sidebarLayoutTree(harness)?["first"]))
+        #expect(afterTurn["lastActivityAt"] == .int(1_700_000_000))
 
         // Claude exits: the shell is back in the foreground and the stale
         // title no longer reads as an agent.

@@ -8,6 +8,10 @@ extension RemoteTmuxControlConnection {
     /// spinner advances the title every second mid-turn, and each notify
     /// re-runs every mirror's reconcile. The stored raw title stays current, so
     /// the next reconcile for any reason copies the latest frame.
+    ///
+    /// A pane seen for the first time takes its turn-state start from
+    /// ``paneStatusSinceStore`` (unknown when nothing matches), and every known
+    /// start is recorded there for the next connection.
     func notePaneTerminalTitle(paneId: Int, rawValue: String, now: Date = Date()) {
         let title = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let previous = paneTerminalTitles[paneId]
@@ -17,10 +21,16 @@ extension RemoteTmuxControlConnection {
             }
             return
         }
-        let next = RemoteTmuxPaneTerminalTitle(raw: title, previous: previous, now: now)
+        var next = RemoteTmuxPaneTerminalTitle(raw: title, previous: previous, now: now)
+        if previous == nil {
+            next.restoreGlyphStatusSince(
+                paneStatusSinceStore.since(hostId: host.id, paneId: paneId, title: next, now: now)
+            )
+        }
         guard next != previous else { return }
         paneTerminalTitles[paneId] = next
         if next.isMeaningfulChange(from: previous) {
+            paneStatusSinceStore.record(hostId: host.id, paneId: paneId, title: next, now: now)
             observers.notifyTopologyChanged()
         }
     }

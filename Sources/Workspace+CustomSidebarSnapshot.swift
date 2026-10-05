@@ -204,6 +204,8 @@ extension Workspace {
                         name: ChatAgentKind.claude.displayName,
                         status: agent.status.rawValue,
                         stateSince: isWorking ? agent.since : nil,
+                        // Unknown (nil) for a pane already idle when first
+                        // seen: no cache countdown beats a falsely fresh one.
                         lastActivityAt: isWorking ? now : agent.since,
                         title: mirror.paneTerminalTitles[tmuxPaneId]?.topic,
                         panelId: panel.id,
@@ -307,8 +309,8 @@ extension Workspace {
         }
     }
 
-    /// Pane-leaf agent fields (`status`, `agentKind`, `lastActivityAt`) per
-    /// surface id, built in one pass. The first (most recent) agent bound to a
+    /// Pane-leaf agent fields (`status`, `agentKind`, and `lastActivityAt` when
+    /// known) per surface id, built in one pass. The first (most recent) agent bound to a
     /// surface wins.
     private static func customSidebarAgentFieldsBySurfaceId(
         _ agents: [CustomSidebarAgentSnapshot]
@@ -317,11 +319,14 @@ extension Workspace {
         for agent in agents {
             guard let surfaceId = agent.surfaceId?.uuidString,
                   fieldsBySurfaceId[surfaceId] == nil else { continue }
-            fieldsBySurfaceId[surfaceId] = [
+            var fields: [String: SwiftValue] = [
                 "status": .string(agent.status),
                 "agentKind": .string(agent.kind),
-                "lastActivityAt": .int(Int(agent.lastActivityAt.timeIntervalSince1970)),
             ]
+            if let lastActivityAt = agent.lastActivityAt {
+                fields["lastActivityAt"] = .int(Int(lastActivityAt.timeIntervalSince1970))
+            }
+            fieldsBySurfaceId[surfaceId] = fields
         }
         return fieldsBySurfaceId
     }

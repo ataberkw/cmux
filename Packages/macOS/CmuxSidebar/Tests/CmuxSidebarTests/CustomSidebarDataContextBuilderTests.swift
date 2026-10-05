@@ -408,7 +408,7 @@ struct CustomSidebarDataContextBuilderTests {
             name: "Codex",
             status: "idle",
             stateSince: nil,
-            lastActivityAt: Date(timeIntervalSince1970: 5),
+            lastActivityAt: nil,
             title: "",
             panelId: nil,
             surfaceId: nil,
@@ -421,6 +421,7 @@ struct CustomSidebarDataContextBuilderTests {
 
         #expect(value.member("status") == .string("idle"))
         #expect(value.member("sinceEpoch") == nil)
+        #expect(value.member("lastActivityAt") == nil)
         #expect(value.member("title") == nil)
         #expect(value.member("panelId") == nil)
         #expect(value.member("surfaceId") == nil)

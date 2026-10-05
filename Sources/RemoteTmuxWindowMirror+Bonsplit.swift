@@ -548,8 +548,9 @@ extension RemoteTmuxWindowMirror {
     }
 
     /// The Claude turn state the pane's terminal title encodes, gated on the
-    /// pane's foreground command, with when that state began.
-    func agentStatus(forPane paneId: Int) -> (status: RemoteTmuxPaneAgentStatus, since: Date)? {
+    /// pane's foreground command, with when that state began (`nil` when it
+    /// already held when the mirror first saw the pane).
+    func agentStatus(forPane paneId: Int) -> (status: RemoteTmuxPaneAgentStatus, since: Date?)? {
         guard let title = paneTerminalTitles[paneId],
               let status = title.agentStatus(
                   foregroundCommand: connection?.paneForegroundStates[paneId]?.command

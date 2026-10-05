@@ -273,8 +273,9 @@ with:
   (`{ target, state, connected }`), `agents` (coding-agent sessions hosted by
   the workspace's terminals, most recent first; omitted when none). Each
   `agents[j]` always has `id`, `kind` (`claude`/`codex`/raw source), `name`
-  (display name), `status` (`idle`|`working`|`needs_input`|`ended`), and
-  `lastActivityAt` (epoch); when available it adds `sinceEpoch` (when the
+  (display name), and `status` (`idle`|`working`|`needs_input`|`ended`);
+  when available it adds `lastActivityAt` (epoch; absent when unknown, e.g. a
+  remote tmux pane that was already idle when cmux first saw it), `sinceEpoch` (when the
   current working/needs-input state began), `title` (first user prompt),
   `panelId` (the hosting terminal's `tabs[k].id`), `surfaceId` (the hosting
   tab's `tabs[k].surfaceId`, accepted by `surface.focus`), `directory`,

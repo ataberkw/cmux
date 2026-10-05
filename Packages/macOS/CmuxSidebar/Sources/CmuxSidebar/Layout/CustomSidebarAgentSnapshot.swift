@@ -22,8 +22,9 @@ public struct CustomSidebarAgentSnapshot: Sendable, Equatable {
     /// When the current working/needs-input state began; `nil` for idle and
     /// ended (`agents[j].sinceEpoch`).
     public let stateSince: Date?
-    /// The most recent hook or transcript activity (`agents[j].lastActivityAt`).
-    public let lastActivityAt: Date
+    /// The most recent hook or transcript activity (`agents[j].lastActivityAt`);
+    /// `nil` when unknown (a remote tmux pane already idle when first seen).
+    public let lastActivityAt: Date?
     /// Conversation title (first user prompt), when known (`agents[j].title`).
     public let title: String?
     /// The hosting terminal panel's UUID, matching `tabs[k].id`
@@ -50,7 +51,7 @@ public struct CustomSidebarAgentSnapshot: Sendable, Equatable {
         name: String,
         status: String,
         stateSince: Date?,
-        lastActivityAt: Date,
+        lastActivityAt: Date?,
         title: String?,
         panelId: UUID?,
         surfaceId: UUID?,

@@ -88,6 +88,9 @@ final class RemoteTmuxControlConnection {
     /// default title (the host name) has no entry. The mirror copies its
     /// windows' subset on reconcile, like ``paneHeaderLabels``.
     var paneTerminalTitles: [Int: RemoteTmuxPaneTerminalTitle] = [:]
+    /// Restores a pane's turn-state start when its title is seen again after a
+    /// reconnect or relaunch (see ``notePaneTerminalTitle(paneId:rawValue:now:)``).
+    var paneStatusSinceStore = RemoteTmuxPaneStatusSinceStore.forNewConnection()
     /// Configured tmux pane-title placement per window; absence means off.
     var windowTitleRowPlacements: [Int: RemoteTmuxPaneTitleRowPlacement] = [:]
     /// Layouts awaiting authoritative pane rectangles before publication.

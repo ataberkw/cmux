@@ -22,8 +22,11 @@ struct RemoteTmuxPaneTerminalTitle: Equatable, Sendable {
     let glyphStatus: RemoteTmuxPaneAgentStatus?
     /// The title without its leading turn glyph.
     let topic: String
-    /// When ``glyphStatus`` last changed; first sight counts as a change.
-    let glyphStatusSince: Date
+    /// When ``glyphStatus`` last changed, or `nil` when the state already held
+    /// at first sight. First sight (a connect, a reconnect, an app relaunch)
+    /// says nothing about when the turn ended, so it is not a change: treating
+    /// it as one made an hour-idle pane read as a fresh turn.
+    private(set) var glyphStatusSince: Date?
 
     /// Claude Code's between-turns title glyph.
     static let idleGlyph: Character = "\u{2733}"
@@ -57,16 +60,24 @@ struct RemoteTmuxPaneTerminalTitle: Equatable, Sendable {
 
     /// Parses `raw`, carrying `previous`'s status timestamp forward while the
     /// turn state is unchanged (spinner frames churn every second mid-turn).
+    /// Without a `previous` the timestamp is unknown (`nil`).
     init(raw: String, previous: RemoteTmuxPaneTerminalTitle?, now: Date) {
         self.raw = raw
         let parsed = Self.parse(raw)
         glyphStatus = parsed.status
         topic = parsed.topic
-        if let previous, previous.glyphStatus == parsed.status {
-            glyphStatusSince = previous.glyphStatusSince
+        if let previous {
+            glyphStatusSince = previous.glyphStatus == parsed.status ? previous.glyphStatusSince : now
         } else {
-            glyphStatusSince = now
+            glyphStatusSince = nil
         }
+    }
+
+    /// Fills an unknown status timestamp from a remembered one (see
+    /// ``RemoteTmuxPaneStatusSinceStore``). A known timestamp is kept.
+    mutating func restoreGlyphStatusSince(_ since: Date?) {
+        guard glyphStatusSince == nil else { return }
+        glyphStatusSince = since
     }
 
     /// Whether moving from `previous` to this title changes anything a reader

@@ -56,15 +56,92 @@ struct RemoteTmuxPaneTerminalTitleTests {
     /// The status timestamp survives spinner frames and resets on a turn edge,
     /// so the sidebar's last-activity time is the end of the last turn.
     @Test func statusSinceCarriesAcrossSpinnerFramesAndResetsOnTurnEdge() {
-        let first = RemoteTmuxPaneTerminalTitle(raw: "⠂ task", previous: nil, now: start)
-        let frame = RemoteTmuxPaneTerminalTitle(raw: "⠐ task", previous: first, now: start + 1)
+        let working = RemoteTmuxPaneTerminalTitle(raw: "✳ task", previous: nil, now: start)
+        let first = RemoteTmuxPaneTerminalTitle(raw: "⠂ task", previous: working, now: start + 1)
+        let frame = RemoteTmuxPaneTerminalTitle(raw: "⠐ task", previous: first, now: start + 2)
         #expect(frame.glyphStatus == .working)
-        #expect(frame.glyphStatusSince == start)
+        #expect(frame.glyphStatusSince == start + 1)
         #expect(!frame.isMeaningfulChange(from: first))
 
         let done = RemoteTmuxPaneTerminalTitle(raw: "✳ task", previous: frame, now: start + 30)
         #expect(done.glyphStatusSince == start + 30)
         #expect(done.isMeaningfulChange(from: frame))
+    }
+
+    /// First sight (connect, reconnect, relaunch) says nothing about when the
+    /// turn ended. Stamping it `now` made an hour-idle pane's split-map cache
+    /// countdown restart at 60 min.
+    @Test func firstSightLeavesStatusSinceUnknownUntilATurnEdge() {
+        let idle = RemoteTmuxPaneTerminalTitle(raw: "✳ task", previous: nil, now: start)
+        #expect(idle.glyphStatusSince == nil)
+        let frame = RemoteTmuxPaneTerminalTitle(raw: "⠂ task", previous: nil, now: start)
+        #expect(frame.glyphStatusSince == nil)
+        let stillUnknown = RemoteTmuxPaneTerminalTitle(raw: "⠐ task", previous: frame, now: start + 1)
+        #expect(stillUnknown.glyphStatusSince == nil)
+        let done = RemoteTmuxPaneTerminalTitle(raw: "✳ task", previous: stillUnknown, now: start + 9)
+        #expect(done.glyphStatusSince == start + 9)
+    }
+
+    /// A reconnect is a new connection that sees every title again; the turn
+    /// end recorded by the previous connection carries over, so the cache
+    /// countdown keeps draining instead of restarting.
+    @Test func reconnectRestoresTurnEndRecordedByThePreviousConnection() {
+        let host = RemoteTmuxHost(destination: "user@host")
+        let store = RemoteTmuxPaneStatusSinceStore(defaults: nil)
+        let before = RemoteTmuxControlConnection(host: host, sessionName: "work")
+        before.paneStatusSinceStore = store
+        before.notePaneTerminalTitle(paneId: 4, rawValue: "⠂ task", now: start)
+        before.notePaneTerminalTitle(paneId: 4, rawValue: "✳ task", now: start + 60)
+        #expect(before.paneTerminalTitles[4]?.glyphStatusSince == start + 60)
+
+        let after = RemoteTmuxControlConnection(host: host, sessionName: "work")
+        after.paneStatusSinceStore = store
+        after.notePaneTerminalTitle(paneId: 4, rawValue: "✳ task", now: start + 2_400)
+        #expect(after.paneTerminalTitles[4]?.glyphStatusSince == start + 60)
+
+        // Another state, topic, pane, or host is not the same turn: unknown.
+        let otherTopic = RemoteTmuxControlConnection(host: host, sessionName: "work")
+        otherTopic.paneStatusSinceStore = store
+        otherTopic.notePaneTerminalTitle(paneId: 4, rawValue: "✳ new chat", now: start + 2_400)
+        #expect(otherTopic.paneTerminalTitles[4]?.glyphStatusSince == nil)
+        otherTopic.notePaneTerminalTitle(paneId: 5, rawValue: "✳ task", now: start + 2_400)
+        #expect(otherTopic.paneTerminalTitles[5]?.glyphStatusSince == nil)
+        let otherHost = RemoteTmuxControlConnection(host: RemoteTmuxHost(destination: "other"), sessionName: "work")
+        otherHost.paneStatusSinceStore = store
+        otherHost.notePaneTerminalTitle(paneId: 4, rawValue: "✳ task", now: start + 2_400)
+        #expect(otherHost.paneTerminalTitles[4]?.glyphStatusSince == nil)
+        let working = RemoteTmuxControlConnection(host: host, sessionName: "work")
+        working.paneStatusSinceStore = store
+        working.notePaneTerminalTitle(paneId: 4, rawValue: "⠂ task", now: start + 2_400)
+        #expect(working.paneTerminalTitles[4]?.glyphStatusSince == nil)
+    }
+
+    /// The store survives an app relaunch through its defaults suite and
+    /// forgets turn ends older than its retention window.
+    @Test func statusSinceStorePersistsAcrossRelaunchAndPrunesOldEntries() throws {
+        let suite = "RemoteTmuxPaneStatusSinceStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let idle = RemoteTmuxPaneTerminalTitle(
+            raw: "✳ task",
+            previous: RemoteTmuxPaneTerminalTitle(raw: "⠂ task", previous: nil, now: start),
+            now: start + 5
+        )
+
+        RemoteTmuxPaneStatusSinceStore(defaults: defaults)
+            .record(hostId: "h", paneId: 1, title: idle, now: start + 5)
+        let relaunched = RemoteTmuxPaneStatusSinceStore(defaults: defaults)
+        #expect(relaunched.since(hostId: "h", paneId: 1, title: idle, now: start + 100) == start + 5)
+
+        let later = start + RemoteTmuxPaneStatusSinceStore.retention + 10
+        let other = RemoteTmuxPaneTerminalTitle(
+            raw: "✳ other",
+            previous: RemoteTmuxPaneTerminalTitle(raw: "⠂ other", previous: nil, now: later),
+            now: later
+        )
+        relaunched.record(hostId: "h", paneId: 2, title: other, now: later)
+        #expect(relaunched.since(hostId: "h", paneId: 1, title: idle, now: later) == nil)
+        #expect(relaunched.since(hostId: "h", paneId: 2, title: other, now: later) == later)
     }
 
     /// Mid-turn spinner frames arrive once a second; each topology notify
