@@ -370,11 +370,10 @@ final class RenderWorkerCoordinator {
             dragSession = session
             started = true
         }
-        let previousHover = dragSession?.hover
-        dragSession?.move(to: point, regions: dragRegions)
         // Only the hovered target/zone is drawn, so skip re-rendering for
         // moves that don't change it.
-        if started || dragSession?.hover != previousHover {
+        let hoverChanged = dragSession?.move(to: point, regions: dragRegions) ?? false
+        if started || hoverChanged {
             republishDragFeedback()
         }
     }

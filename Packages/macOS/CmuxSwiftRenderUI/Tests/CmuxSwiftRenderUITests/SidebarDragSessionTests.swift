@@ -45,6 +45,25 @@ struct SidebarDragSessionTests {
         #expect(SidebarDragSession.hasActivated(from: start, to: CGPoint(x: 10, y: 16)))
     }
 
+    @Test func moveReportsOnlyHoverChanges() throws {
+        var session = try #require(SidebarDragSession(pressedAt: CGPoint(x: 50, y: 50), regions: regions))
+        // Entering B's cell center makes the hover appear; wiggling in the same
+        // zone redraws nothing; crossing into the left edge zone does; leaving
+        // every target clears the hover once, then stays quiet.
+        let steps: [(CGPoint, Bool)] = [
+            (CGPoint(x: 50, y: 190), true),
+            (CGPoint(x: 52, y: 192), false),
+            (CGPoint(x: 5, y: 190), true),
+            (CGPoint(x: 50, y: 110), true),
+            (CGPoint(x: 50, y: 112), false),
+        ]
+        for (point, expectedChange) in steps {
+            let changed = session.move(to: point, regions: regions)
+            #expect(changed == expectedChange, "move to \(point)")
+        }
+        #expect(session.location == CGPoint(x: 50, y: 112))
+    }
+
     @Test func droppingOnOwnSourceIsANoOp() throws {
         var session = try #require(SidebarDragSession(pressedAt: CGPoint(x: 50, y: 50), regions: regions))
         session.move(to: CGPoint(x: 90, y: 50), regions: regions)

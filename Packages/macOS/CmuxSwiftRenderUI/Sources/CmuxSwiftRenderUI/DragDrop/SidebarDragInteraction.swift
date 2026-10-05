@@ -26,15 +26,24 @@ struct SidebarDragInteraction: ViewModifier {
             .simultaneousGesture(
                 DragGesture(minimumDistance: SidebarDragSession.activationDistance, coordinateSpace: .global)
                     .onChanged { value in
-                        if session == nil {
-                            guard !pressRejected else { return }
-                            guard let started = SidebarDragSession(pressedAt: value.startLocation, regions: store.regions) else {
-                                pressRejected = true
-                                return
+                        // Only the source and the hovered target/zone are
+                        // drawn, so `session` (state) is written only when
+                        // the drag starts or its hover changes, not on every
+                        // pointer move. `onEnded` re-resolves at the final
+                        // location, so the stale `location` never matters.
+                        if var current = session {
+                            if current.move(to: value.location, regions: store.regions) {
+                                session = current
                             }
-                            session = started
+                            return
                         }
-                        session?.move(to: value.location, regions: store.regions)
+                        guard !pressRejected else { return }
+                        guard var started = SidebarDragSession(pressedAt: value.startLocation, regions: store.regions) else {
+                            pressRejected = true
+                            return
+                        }
+                        started.move(to: value.location, regions: store.regions)
+                        session = started
                     }
                     .onEnded { value in
                         defer {

@@ -68,12 +68,20 @@ public struct SidebarDragSession: Equatable, Sendable {
     /// The innermost target containing the point wins. Anywhere over the
     /// drag's own source is no target at all (not even an enclosing one), so
     /// dropping a pane back on itself is a no-op.
-    public mutating func move(to point: CGPoint, regions: [SidebarDragRegion]) {
+    ///
+    /// - Returns: Whether ``hover`` changed. Feedback draws only the source
+    ///   and the hovered target/zone, so a move that returns `false` needs no
+    ///   redraw; both render lanes gate republishing on it.
+    @discardableResult
+    public mutating func move(to point: CGPoint, regions: [SidebarDragRegion]) -> Bool {
         location = point
-        guard !sourceFrame.contains(point) else {
-            hover = nil
-            return
-        }
+        let previous = hover
+        hover = resolveHover(at: point, regions: regions)
+        return hover != previous
+    }
+
+    private func resolveHover(at point: CGPoint, regions: [SidebarDragRegion]) -> Hover? {
+        guard !sourceFrame.contains(point) else { return nil }
         let targets = regions.compactMap { region -> (CGRect, DropSpec)? in
             guard case let .target(spec) = region.role,
                   region.frame.contains(point),
@@ -81,8 +89,7 @@ public struct SidebarDragSession: Equatable, Sendable {
             return (region.frame, spec)
         }
         guard let (frame, spec) = targets.min(by: { Self.area($0.0) < Self.area($1.0) }) else {
-            hover = nil
-            return
+            return nil
         }
         let zone = spec.usesZones
             ? DropZone.resolve(
@@ -92,7 +99,7 @@ public struct SidebarDragSession: Equatable, Sendable {
                 height: Double(frame.height)
             )
             : .center
-        hover = Hover(
+        return Hover(
             targetFrame: frame,
             zone: zone,
             highlightFrame: Self.highlightFrame(for: zone, in: frame),
