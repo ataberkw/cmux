@@ -25,66 +25,24 @@ extension Workspace {
                 isConnected: remoteConnectionState == .connected
             )
         }
-        // Pane geometry from the same Bonsplit layout snapshot the socket
-        // `pane.list` command reads, keyed by pane id (uuidString) so each
+        // One Bonsplit tree walk feeds both the pane geometry and the split
+        // tree. Pane frames use the same math as `layoutSnapshot()` (what the
+        // socket `pane.list` reads), keyed by pane id (uuidString) so each
         // surface can carry its split cell's pixel frame.
-        let layout = bonsplitController.layoutSnapshot()
-        let containerFrame = CustomSidebarWorkspaceSnapshot.ContainerSize(
-            x: layout.containerFrame.x,
-            y: layout.containerFrame.y,
-            width: layout.containerFrame.width,
-            height: layout.containerFrame.height
-        )
-        let frameByPaneId = Dictionary(
-            layout.panes.map { pane in
-                (
-                    pane.paneId,
-                    CustomSidebarSurfaceSnapshot.Frame(
-                        x: pane.frame.x,
-                        y: pane.frame.y,
-                        width: pane.frame.width,
-                        height: pane.frame.height
-                    )
-                )
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-        // Agent session state + kind per surface (idle/working/needs_input/ended;
-        // claude/cursor/codex/…), so the split tree can carry each pane's live
-        // agent status and which agent it is (the sidebar colors idle by kind).
+        let tree = bonsplitController.treeSnapshot()
+        let geometry = Self.customSidebarPaneGeometry(tree)
+        // Agent fields per surface: state (idle/working/needs_input/ended),
+        // kind (claude/cursor/codex/…, the sidebar colors idle by kind), and
+        // the last turn in epoch seconds (the rolling prompt-cache countdown).
         let agentSnapshots = customSidebarAgentSnapshots()
-        let statusBySurfaceId = Dictionary(
-            agentSnapshots.compactMap { agent -> (String, String)? in
-                guard let surfaceId = agent.surfaceId else { return nil }
-                return (surfaceId.uuidString, agent.status)
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let kindBySurfaceId = Dictionary(
-            agentSnapshots.compactMap { agent -> (String, String)? in
-                guard let surfaceId = agent.surfaceId else { return nil }
-                return (surfaceId.uuidString, agent.kind)
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
-        // Last agent turn per surface (epoch seconds), so a sidebar can draw the
-        // rolling prompt-cache countdown (cache stays warm ~1h from the last turn).
-        let lastActivityBySurfaceId = Dictionary(
-            agentSnapshots.compactMap { agent -> (String, Int)? in
-                guard let surfaceId = agent.surfaceId else { return nil }
-                return (surfaceId.uuidString, Int(agent.lastActivityAt.timeIntervalSince1970))
-            },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let agentFieldsBySurfaceId = Self.customSidebarAgentFieldsBySurfaceId(agentSnapshots)
         // The same layout as a recursive split tree, projected straight to
         // interpreter values so a sidebar can draw the schema with nested
         // stacks (no pixel math). Empty layouts collapse to `nil`.
         let layoutTree = Self.customSidebarLayoutTreeValue(
-            bonsplitController.treeSnapshot(),
-            focusedPaneId: layout.focusedPaneId,
-            statusBySurfaceId: statusBySurfaceId,
-            kindBySurfaceId: kindBySurfaceId,
-            lastActivityBySurfaceId: lastActivityBySurfaceId,
+            tree,
+            focusedPaneId: bonsplitController.focusedPaneId?.id.uuidString,
+            agentFieldsBySurfaceId: agentFieldsBySurfaceId,
             panelIdForSurfaceId: { raw in
                 UUID(uuidString: raw).flatMap { self.panelIdFromSurfaceId(TabID(uuid: $0)) }?.uuidString
             },
@@ -92,7 +50,8 @@ extension Workspace {
                 UUID(uuidString: raw).flatMap {
                     self.customSidebarRemoteTmuxLayoutTreeValue(
                         containerPanelId: $0,
-                        containerFocused: containerFocused
+                        containerFocused: containerFocused,
+                        agentFieldsBySurfaceId: agentFieldsBySurfaceId
                     )
                 }
             }
@@ -112,7 +71,7 @@ extension Workspace {
             unreadCount: unreadCount,
             surfaces: customSidebarSurfaceSnapshots(
                 focusedPanelId: focusedPanelId,
-                frameByPaneId: frameByPaneId
+                frameByPaneId: geometry.frameByPaneId
             ),
             surfaceCount: bonsplitController.allPaneIds.reduce(0) {
                 $0 + bonsplitController.tabs(inPane: $1).count
@@ -129,7 +88,7 @@ extension Workspace {
             remote: remote,
             agents: agentSnapshots,
             groupId: groupId,
-            containerFrame: containerFrame,
+            containerFrame: geometry.containerFrame,
             layoutTree: layoutTree,
             folderIdentities: folderIdentities
         )
@@ -149,14 +108,21 @@ extension Workspace {
     /// their stored workspace id matches, because that stored id goes stale
     /// across relaunches while the panel binding stays authoritative.
     private func customSidebarAgentSnapshots() -> [CustomSidebarAgentSnapshot] {
-        guard let service = TerminalController.shared.agentChatTranscriptService else { return [] }
-        let records = service.sessionRecords(workspaceID: nil)
-        guard !records.isEmpty else { return [] }
+        let records = TerminalController.shared.agentChatTranscriptService?
+            .sessionRecords(workspaceID: nil) ?? []
         var surfaceIdByPanelId: [UUID: UUID] = [:]
         for paneId in bonsplitController.allPaneIds {
             for tab in bonsplitController.tabs(inPane: paneId) {
                 guard let panelId = panelIdFromSurfaceId(tab.id) else { continue }
                 surfaceIdByPanelId[panelId] = tab.id.uuid
+            }
+        }
+        // A mirrored tmux window's panes are panels nested inside its one
+        // container tab, each addressed by its own panel id (the layout
+        // tree's `surfaceId` for that pane).
+        for mirror in remoteTmuxWindowMirrors.values {
+            for panel in mirror.panelsByPaneId.values {
+                surfaceIdByPanelId[panel.id] = panel.id
             }
         }
         let workspaceIdString = id.uuidString
@@ -211,7 +177,45 @@ extension Workspace {
             )
             if agents.count >= Self.customSidebarAgentLimit { break }
         }
+        appendCustomSidebarRemoteTmuxTitleAgents(to: &agents)
         return agents
+    }
+
+    /// Adds a Claude agent for each mirrored tmux pane whose terminal title
+    /// carries Claude's turn glyph and that no hook-backed record already
+    /// covers. Remote tmux panes have no cmux hooks (the ssh-tmux transport
+    /// has no socket relay), so the title is their only turn signal.
+    private func appendCustomSidebarRemoteTmuxTitleAgents(
+        to agents: inout [CustomSidebarAgentSnapshot]
+    ) {
+        guard !remoteTmuxWindowMirrors.isEmpty else { return }
+        let boundSurfaceIds = Set(agents.compactMap(\.surfaceId))
+        let now = Date()
+        for mirror in remoteTmuxWindowMirrors.values {
+            for (tmuxPaneId, panel) in mirror.panelsByPaneId.sorted(by: { $0.key < $1.key }) {
+                guard agents.count < Self.customSidebarAgentLimit else { return }
+                guard !boundSurfaceIds.contains(panel.id),
+                      let agent = mirror.agentStatus(forPane: tmuxPaneId) else { continue }
+                let isWorking = agent.status == .working
+                agents.append(
+                    CustomSidebarAgentSnapshot(
+                        sessionId: "tmux-title-\(panel.id.uuidString)",
+                        kind: ChatAgentKind.claude.sourceName,
+                        name: ChatAgentKind.claude.displayName,
+                        status: agent.status.rawValue,
+                        stateSince: isWorking ? agent.since : nil,
+                        lastActivityAt: isWorking ? now : agent.since,
+                        title: mirror.paneTerminalTitles[tmuxPaneId]?.topic,
+                        panelId: panel.id,
+                        surfaceId: panel.id,
+                        workingDirectory: mirror.cwdByPaneId[tmuxPaneId],
+                        transcriptPath: nil,
+                        pid: nil,
+                        children: []
+                    )
+                )
+            }
+        }
     }
 
     private func customSidebarSurfaceSnapshots(
@@ -254,9 +258,7 @@ extension Workspace {
     private static func customSidebarLayoutTreeValue(
         _ node: ExternalTreeNode,
         focusedPaneId: String?,
-        statusBySurfaceId: [String: String],
-        kindBySurfaceId: [String: String],
-        lastActivityBySurfaceId: [String: Int],
+        agentFieldsBySurfaceId: [String: [String: SwiftValue]],
         panelIdForSurfaceId: (String) -> String?,
         nestedTreeForPanelId: (String, Bool) -> SwiftValue?
     ) -> SwiftValue {
@@ -268,14 +270,12 @@ extension Workspace {
                 "ratio": .double(split.dividerPosition),
                 "first": customSidebarLayoutTreeValue(
                     split.first, focusedPaneId: focusedPaneId,
-                    statusBySurfaceId: statusBySurfaceId, kindBySurfaceId: kindBySurfaceId,
-                    lastActivityBySurfaceId: lastActivityBySurfaceId,
+                    agentFieldsBySurfaceId: agentFieldsBySurfaceId,
                     panelIdForSurfaceId: panelIdForSurfaceId,
                     nestedTreeForPanelId: nestedTreeForPanelId),
                 "second": customSidebarLayoutTreeValue(
                     split.second, focusedPaneId: focusedPaneId,
-                    statusBySurfaceId: statusBySurfaceId, kindBySurfaceId: kindBySurfaceId,
-                    lastActivityBySurfaceId: lastActivityBySurfaceId,
+                    agentFieldsBySurfaceId: agentFieldsBySurfaceId,
                     panelIdForSurfaceId: panelIdForSurfaceId,
                     nestedTreeForPanelId: nestedTreeForPanelId),
             ])
@@ -299,18 +299,66 @@ extension Workspace {
                     fields["panelId"] = .string(panelId)
                 }
                 fields["title"] = .string(selectedTab.title)
-                if let status = statusBySurfaceId[selectedTab.id] {
-                    fields["status"] = .string(status)
-                }
-                if let agentKind = kindBySurfaceId[selectedTab.id] {
-                    fields["agentKind"] = .string(agentKind)
-                }
-                if let lastActivityAt = lastActivityBySurfaceId[selectedTab.id] {
-                    fields["lastActivityAt"] = .int(lastActivityAt)
+                if let agentFields = agentFieldsBySurfaceId[selectedTab.id] {
+                    fields.merge(agentFields, uniquingKeysWith: { _, agent in agent })
                 }
             }
             return .object(fields)
         }
+    }
+
+    /// Pane-leaf agent fields (`status`, `agentKind`, `lastActivityAt`) per
+    /// surface id, built in one pass. The first (most recent) agent bound to a
+    /// surface wins.
+    private static func customSidebarAgentFieldsBySurfaceId(
+        _ agents: [CustomSidebarAgentSnapshot]
+    ) -> [String: [String: SwiftValue]] {
+        var fieldsBySurfaceId: [String: [String: SwiftValue]] = [:]
+        for agent in agents {
+            guard let surfaceId = agent.surfaceId?.uuidString,
+                  fieldsBySurfaceId[surfaceId] == nil else { continue }
+            fieldsBySurfaceId[surfaceId] = [
+                "status": .string(agent.status),
+                "agentKind": .string(agent.kind),
+                "lastActivityAt": .int(Int(agent.lastActivityAt.timeIntervalSince1970)),
+            ]
+        }
+        return fieldsBySurfaceId
+    }
+
+    /// The dock container frame and each pane's pixel frame (keyed by pane id
+    /// uuidString), read off one ``ExternalTreeNode`` walk. Pane cells tile
+    /// the container exactly, so the container is the union of the leaves.
+    static func customSidebarPaneGeometry(_ tree: ExternalTreeNode) -> (
+        containerFrame: CustomSidebarWorkspaceSnapshot.ContainerSize,
+        frameByPaneId: [String: CustomSidebarSurfaceSnapshot.Frame]
+    ) {
+        var frameByPaneId: [String: CustomSidebarSurfaceSnapshot.Frame] = [:]
+        var container: CGRect?
+        func visit(_ node: ExternalTreeNode) {
+            switch node {
+            case let .split(split):
+                visit(split.first)
+                visit(split.second)
+            case let .pane(pane):
+                let frame = pane.frame
+                if frameByPaneId[pane.id] == nil {
+                    frameByPaneId[pane.id] = CustomSidebarSurfaceSnapshot.Frame(
+                        x: frame.x, y: frame.y, width: frame.width, height: frame.height
+                    )
+                }
+                let rect = CGRect(x: frame.x, y: frame.y, width: frame.width, height: frame.height)
+                container = container.map { $0.union(rect) } ?? rect
+            }
+        }
+        visit(tree)
+        let bounds = container ?? .zero
+        return (
+            CustomSidebarWorkspaceSnapshot.ContainerSize(
+                x: bounds.minX, y: bounds.minY, width: bounds.width, height: bounds.height
+            ),
+            frameByPaneId
+        )
     }
 
     /// Expands a mirrored tmux window's container cell into that window's own
@@ -321,7 +369,8 @@ extension Workspace {
     /// focuses them through `surface.focus`.
     private func customSidebarRemoteTmuxLayoutTreeValue(
         containerPanelId: UUID,
-        containerFocused: Bool
+        containerFocused: Bool,
+        agentFieldsBySurfaceId: [String: [String: SwiftValue]]
     ) -> SwiftValue? {
         guard let mirror = remoteTmuxWindowMirror(forPanelId: containerPanelId) else { return nil }
         let panes = Dictionary(
@@ -335,7 +384,8 @@ extension Workspace {
             mirror.layout,
             panes: panes,
             zoomedPaneId: mirror.zoomed ? mirror.visibleLayout?.paneIDsInOrder.first : nil,
-            containerFocused: containerFocused
+            containerFocused: containerFocused,
+            agentFieldsBySurfaceId: agentFieldsBySurfaceId
         )
     }
 
@@ -343,7 +393,8 @@ extension Workspace {
         _ node: RemoteTmuxLayoutNode,
         panes: [Int: RemoteTmuxControlPane],
         zoomedPaneId: Int?,
-        containerFocused: Bool
+        containerFocused: Bool,
+        agentFieldsBySurfaceId: [String: [String: SwiftValue]]
     ) -> SwiftValue {
         switch node.content {
         case let .pane(tmuxPaneId):
@@ -360,17 +411,22 @@ extension Workspace {
                 fields["surfaceId"] = .string(pane.panel.id.uuidString)
                 fields["panelId"] = .string(pane.panel.id.uuidString)
                 fields["title"] = .string(pane.title)
+                if let agentFields = agentFieldsBySurfaceId[pane.panel.id.uuidString] {
+                    fields.merge(agentFields, uniquingKeysWith: { _, agent in agent })
+                }
             }
             return .object(fields)
         case let .horizontal(children):
             return customSidebarRemoteTmuxSplitValue(
                 children[...], horizontal: true,
-                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused,
+                agentFieldsBySurfaceId: agentFieldsBySurfaceId
             )
         case let .vertical(children):
             return customSidebarRemoteTmuxSplitValue(
                 children[...], horizontal: false,
-                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused,
+                agentFieldsBySurfaceId: agentFieldsBySurfaceId
             )
         }
     }
@@ -383,11 +439,13 @@ extension Workspace {
         horizontal: Bool,
         panes: [Int: RemoteTmuxControlPane],
         zoomedPaneId: Int?,
-        containerFocused: Bool
+        containerFocused: Bool,
+        agentFieldsBySurfaceId: [String: [String: SwiftValue]]
     ) -> SwiftValue {
         let node: (RemoteTmuxLayoutNode) -> SwiftValue = {
             customSidebarRemoteTmuxNodeValue(
-                $0, panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+                $0, panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused,
+                agentFieldsBySurfaceId: agentFieldsBySurfaceId
             )
         }
         guard let first = children.first else { return .object(["kind": .string("pane")]) }
@@ -401,7 +459,8 @@ extension Workspace {
             "first": node(first),
             "second": customSidebarRemoteTmuxSplitValue(
                 children.dropFirst(), horizontal: horizontal,
-                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused
+                panes: panes, zoomedPaneId: zoomedPaneId, containerFocused: containerFocused,
+                agentFieldsBySurfaceId: agentFieldsBySurfaceId
             ),
         ])
     }

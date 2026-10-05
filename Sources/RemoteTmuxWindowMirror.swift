@@ -222,6 +222,9 @@ final class RemoteTmuxWindowMirror: RemoteTmuxControlPaneMutationOwner {
     /// connection on every reconcile so the view reads stored state, never
     /// the connection. Rendered on the strip above each pane.
     private(set) var paneHeaderLabels: [Int: String] = [:]
+    /// Program-set terminal titles per pane (Claude's `✳ <topic>`), copied
+    /// from the connection on every reconcile like ``paneHeaderLabels``.
+    private(set) var paneTerminalTitles: [Int: RemoteTmuxPaneTerminalTitle] = [:]
 
     /// The render constants the view actually uses, updated ONLY on event
     /// paths (applied-resize reports, client-size pushes) and read by the
@@ -381,6 +384,7 @@ final class RemoteTmuxWindowMirror: RemoteTmuxControlPaneMutationOwner {
             connection?.unsubscribePanePath(paneId: paneId)
             connection?.unsubscribePaneReflow(paneId: paneId)
             connection?.unsubscribePaneHeader(paneId: paneId)
+            connection?.unsubscribePaneTitle(paneId: paneId)
             panelsByPaneId[paneId] = nil
             onTerminalPanelRemoved?(panel)
             cwdByPaneId[paneId] = nil
@@ -401,6 +405,8 @@ final class RemoteTmuxWindowMirror: RemoteTmuxControlPaneMutationOwner {
         if layout != newLayout { layout = newLayout }
         let labels = (connection?.paneHeaderLabels ?? [:]).filter { livePaneIds.contains($0.key) }
         if labels != paneHeaderLabels { paneHeaderLabels = labels }
+        let terminalTitles = (connection?.paneTerminalTitles ?? [:]).filter { livePaneIds.contains($0.key) }
+        if terminalTitles != paneTerminalTitles { paneTerminalTitles = terminalTitles }
         let titleRowPlacement = connection?.windowTitleRowPlacements[windowId]
         if tmuxTitleRowPlacement != titleRowPlacement {
             tmuxTitleRowPlacement = titleRowPlacement
@@ -570,6 +576,7 @@ final class RemoteTmuxWindowMirror: RemoteTmuxControlPaneMutationOwner {
             activeConnection?.unsubscribePanePath(paneId: paneId)
             activeConnection?.unsubscribePaneReflow(paneId: paneId)
             activeConnection?.unsubscribePaneHeader(paneId: paneId)
+            activeConnection?.unsubscribePaneTitle(paneId: paneId)
         }
         let removedPanels = Array(panelsByPaneId)
         for (paneId, panel) in removedPanels {

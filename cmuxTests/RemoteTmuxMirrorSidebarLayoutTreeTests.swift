@@ -56,6 +56,63 @@ extension RemoteTmuxMirrorCLIObservabilityTests {
         #expect(second["zoomed"] == .bool(true))
     }
 
+    /// ssh-tmux panes have no cmux hooks, so each leaf's title and Claude
+    /// status come from the terminal title Claude sets (`✳ <topic>` between
+    /// turns, a Braille spinner frame mid-turn): the map showed `claude` and
+    /// `claude [1]` with no status.
+    @Test func sidebarLayoutTreeCarriesClaudeTitleAndStatusForTmuxPanes() throws {
+        let harness = try Harness()
+        defer { harness.tearDown() }
+        let connection = harness.connection
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_reflow_11", value: "0|claude"))
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_reflow_22", value: "0|claude"))
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_title_11", value: "✳ revenue report"))
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_title_22", value: "⠂ dashboard"))
+        harness.mirror.reconcile(layout: harness.mirror.layout)
+
+        #expect(harness.mirror.title(forPane: 11) == "✳ revenue report")
+        let tree = try #require(sidebarLayoutTree(harness))
+        let first = try #require(objectFields(tree["first"]))
+        let second = try #require(objectFields(tree["second"]))
+        #expect(first["title"] == .string("✳ revenue report"))
+        #expect(first["status"] == .string("idle"))
+        #expect(first["agentKind"] == .string("claude"))
+        #expect(first["lastActivityAt"] != nil)
+        #expect(second["title"] == .string("⠿ dashboard"))
+        #expect(second["status"] == .string("working"))
+
+        // The next spinner frame leaves the shown title (tab, map) unchanged.
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_title_22", value: "⠐ dashboard"))
+        harness.mirror.reconcile(layout: harness.mirror.layout)
+        #expect(harness.mirror.title(forPane: 22) == "⠿ dashboard")
+
+        let agents = harness.workspace.customSidebarWorkspaceSnapshot(
+            index: 0,
+            selectedId: harness.workspace.id,
+            unreadCount: 0
+        ).agents
+        let left = try #require(harness.mirror.panel(forPane: 11))
+        let leftAgent = try #require(agents.first { $0.surfaceId == left.id })
+        #expect(leftAgent.status == "idle")
+        #expect(leftAgent.title == "revenue report")
+
+        // Claude exits: the shell is back in the foreground and the stale
+        // title no longer reads as an agent.
+        connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_reflow_11", value: "0|bash"))
+        let afterExit = try #require(objectFields(sidebarLayoutTree(harness)?["first"]))
+        #expect(afterExit["status"] == nil)
+    }
+
+    /// A pane no program has titled keeps its window-based name.
+    @Test func untitledTmuxPaneKeepsWindowBasedName() throws {
+        let harness = try Harness()
+        defer { harness.tearDown() }
+        harness.connection.handleMessageForTesting(.subscriptionChanged(name: "cmux_title_22", value: ""))
+        harness.mirror.reconcile(layout: harness.mirror.layout)
+
+        #expect(harness.mirror.title(forPane: 22) == RemoteTmuxWindowMirror.windowPaneTitle(harness.mirror.windowTitle, paneIndex: 1))
+    }
+
     private func sidebarLayoutTree(_ harness: Harness) -> [String: SwiftValue]? {
         let snapshot = harness.workspace.customSidebarWorkspaceSnapshot(
             index: 0,

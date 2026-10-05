@@ -83,6 +83,11 @@ final class RemoteTmuxControlConnection {
     /// the moment tmux would redraw its own border. The mirror copies its
     /// windows' subset on reconcile; the view never reads this directly.
     var paneHeaderLabels: [Int: String] = [:]
+    /// Per-pane program-set terminal titles (`#{pane_title}`), kept LIVE by
+    /// the `cmux_title_<pane>` subscription. A pane still carrying tmux's
+    /// default title (the host name) has no entry. The mirror copies its
+    /// windows' subset on reconcile, like ``paneHeaderLabels``.
+    var paneTerminalTitles: [Int: RemoteTmuxPaneTerminalTitle] = [:]
     /// Configured tmux pane-title placement per window; absence means off.
     var windowTitleRowPlacements: [Int: RemoteTmuxPaneTitleRowPlacement] = [:]
     /// Layouts awaiting authoritative pane rectangles before publication.
@@ -297,6 +302,10 @@ final class RemoteTmuxControlConnection {
     /// its pane, the running command changing) — the same moments native
     /// tmux redraws its own header row.
     static let headerSubscriptionPrefix = "cmux_hdr_"
+    /// Per-pane subscription to the program-set terminal title
+    /// (`#{pane_title}`), which carries Claude Code's topic and turn glyph.
+    /// See ``paneTerminalTitleFormat``.
+    static let titleSubscriptionPrefix = "cmux_title_"
 
     /// Per-WINDOW subscription to `pane-border-status`, the one layout input tmux
     /// changes with no notification of its own.
@@ -883,6 +892,7 @@ final class RemoteTmuxControlConnection {
                     paneOutputByteCounts[pane] = nil
                     paneForegroundStates[pane] = nil
                     paneHeaderLabels[pane] = nil
+                    paneTerminalTitles[pane] = nil
                 }
             }
             activePaneByWindow[id] = nil
@@ -942,11 +952,10 @@ final class RemoteTmuxControlConnection {
                 // Live header text: the pane's re-expanded pane-border-format.
                 // The topology notify re-runs the mirrors' reconcile, which
                 // copies labels — the same path the rects fetch uses.
-                let label = Self.strippingStyleTokens(value)
-                if paneHeaderLabels[paneId] != label {
-                    paneHeaderLabels[paneId] = label
-                    observers.notifyTopologyChanged()
-                }
+                notePaneHeaderLabel(paneId: paneId, rawValue: value)
+            } else if name.hasPrefix(Self.titleSubscriptionPrefix),
+                      let paneId = Int(name.dropFirst(Self.titleSubscriptionPrefix.count)) {
+                notePaneTerminalTitle(paneId: paneId, rawValue: value)
             } else if name.hasPrefix(Self.borderStatusSubscriptionPrefix),
                       let windowId = Int(name.dropFirst(Self.borderStatusSubscriptionPrefix.count)) {
                 // `pane-border-status` changed: every pane touching the configured

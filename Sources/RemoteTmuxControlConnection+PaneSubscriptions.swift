@@ -13,6 +13,18 @@ extension RemoteTmuxControlConnection {
         send("refresh-client -B \(Self.headerSubscriptionPrefix)\(paneId)")
     }
 
+    /// `#{pane_title}`, or empty while it is still tmux's default (the host
+    /// name), so a pane no program has titled keeps its window-based name.
+    /// Commas and colons inside the title are safe: tmux parses the
+    /// conditional before expanding the value (verified on tmux 3.5a).
+    static let paneTerminalTitleFormat = "#{?#{==:#{pane_title},#{host}},,#{pane_title}}"
+
+    /// Removes the live terminal-title subscription for `paneId` (issued once
+    /// the pane is gone), mirroring ``unsubscribePanePath(paneId:)``.
+    func unsubscribePaneTitle(paneId: Int) {
+        send("refresh-client -B \(Self.titleSubscriptionPrefix)\(paneId)")
+    }
+
     /// Format for close-time activity queries: the pane id (for cache refresh and
     /// multi-pane correlation) plus the same `alternate_on`/`pane_current_command`
     /// pair the reflow subscription streams. Quoted by the command builders — see
@@ -125,10 +137,10 @@ extension RemoteTmuxControlConnection {
         send(Self.paneReflowSubscriptionCommand(paneId: paneId))
     }
 
-    /// All three live subscriptions (reflow, cwd, header) for a pane in ONE
-    /// `refresh-client`. tmux accepts multiple `-B` directives per command,
-    /// so this is exactly equivalent to the three separate sends but costs
-    /// one FIFO slot instead of three. Under rapid pane churn the per-pane
+    /// All four live subscriptions (reflow, cwd, header, title) for a pane in
+    /// ONE `refresh-client`. tmux accepts multiple `-B` directives per command,
+    /// so this is exactly equivalent to separate sends but costs one FIFO slot
+    /// instead of four. Under rapid pane churn the per-pane
     /// subscription sends dominate the command stream, and collapsing 3→1
     /// keeps the FIFO from backing up faster than tmux drains it.
     func subscribePaneAll(paneId: Int) {
@@ -138,6 +150,7 @@ extension RemoteTmuxControlConnection {
                 + "#{alternate_on}\(PaneForegroundState.fieldSeparator)#{pane_current_command}\""
                 + " -B \"\(Self.cwdSubscriptionPrefix)\(paneId):%\(paneId):#{pane_current_path}\""
                 + " -B \"\(Self.headerSubscriptionPrefix)\(paneId):%\(paneId):#{T:pane-border-format}\""
+                + " -B \"\(Self.titleSubscriptionPrefix)\(paneId):%\(paneId):\(Self.paneTerminalTitleFormat)\""
         )
     }
 

@@ -536,9 +536,25 @@ extension RemoteTmuxWindowMirror {
         bonsplitController.updateTab(tabId, title: title(forPane: paneId))
     }
 
+    /// The pane's program-set terminal title when it has one (Claude's
+    /// `✳ <topic>`, a working turn pinned to one glyph), else the window name
+    /// with the pane's index.
     func title(forPane paneId: Int) -> String {
+        if let terminalTitle = paneTerminalTitles[paneId]?.displayTitle {
+            return terminalTitle
+        }
         let index = paneIndexByPaneId[paneId] ?? 0
         return Self.windowPaneTitle(windowTitle, paneIndex: index)
+    }
+
+    /// The Claude turn state the pane's terminal title encodes, gated on the
+    /// pane's foreground command, with when that state began.
+    func agentStatus(forPane paneId: Int) -> (status: RemoteTmuxPaneAgentStatus, since: Date)? {
+        guard let title = paneTerminalTitles[paneId],
+              let status = title.agentStatus(
+                  foregroundCommand: connection?.paneForegroundStates[paneId]?.command
+              ) else { return nil }
+        return (status, title.glyphStatusSince)
     }
 
     func combined(children: [RemoteTmuxLayoutNode], orientation: SplitOrientation) -> RemoteTmuxLayoutNode {
