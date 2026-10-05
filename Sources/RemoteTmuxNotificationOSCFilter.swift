@@ -17,12 +17,18 @@ import Foundation
 /// and reports `(title, body)` so the session mirror can attribute the
 /// notification to the pane's surface + workspace itself.
 ///
-/// Any other OSC sequence (titles, hyperlinks, clipboard, non-`notify`
-/// OSC 777 subcommands) passes through byte-identical.
+/// It also intercepts cmux's own agent-hook escape,
+/// `ESC ] 777;cmux-hook;<base64 JSON> BEL|ST`, which the remote Claude hook
+/// script (`scripts/remote-tmux/claude-hook.sh`) writes to its
+/// pane: the ssh-tmux transport has no socket relay, so the pane's own output
+/// stream is the only channel back to this Mac. See ``RemoteTmuxPaneHookEvent``.
+///
+/// Any other OSC sequence (titles, hyperlinks, clipboard, other OSC 777
+/// subcommands) passes through byte-identical.
 ///
 /// Stateful across calls: a `%output` chunk can split the sequence at any
 /// byte. While a sequence still *might* be a notification its bytes are
-/// buffered; the moment the payload diverges from both notification prefixes
+/// buffered; the moment the payload diverges from every intercepted prefix
 /// the buffer is flushed verbatim and the rest of the sequence streams
 /// through unbuffered. An unfinished candidate that exceeds
 /// ``maxBufferedBytes`` is flushed verbatim too, so a hostile or corrupt
@@ -43,6 +49,7 @@ struct RemoteTmuxNotificationOSCFilter {
 
     private static let notifyPrefix = Array("777;notify;".utf8)
     private static let osc9Prefix = Array("9;".utf8)
+    private static let hookPrefix = Array("777;cmux-hook;".utf8)
 
     private var state: State = .text
     /// Original bytes of the candidate sequence (`ESC ]` + payload so far),
@@ -55,12 +62,14 @@ struct RemoteTmuxNotificationOSCFilter {
     /// Creates a filter with no buffered escape-sequence state.
     init() {}
 
-    /// Returns `data` with any complete notification sequences removed,
-    /// invoking `onNotification(title, body)` once per hit in stream order.
-    /// OSC 9 hits report an empty title.
+    /// Returns `data` with any complete notification and agent-hook sequences
+    /// removed, invoking `onNotification(title, body)` or `onHookPayload`
+    /// (the raw base64 text) once per hit in stream order. OSC 9 hits report
+    /// an empty title.
     mutating func filter(
         _ data: Data,
-        onNotification: (_ title: String, _ body: String) -> Void
+        onNotification: (_ title: String, _ body: String) -> Void,
+        onHookPayload: (_ base64: String) -> Void = { _ in }
     ) -> Data {
         // Hot path: not mid-sequence and no ESC in the chunk — nothing to do.
         if state == .text, !data.contains(0x1b) { return data }
@@ -88,7 +97,7 @@ struct RemoteTmuxNotificationOSCFilter {
                 }
             case .collect:
                 if byte == 0x07 {           // BEL terminator
-                    finishCandidate(terminator: [0x07], into: &out, onNotification)
+                    finishCandidate(terminator: [0x07], into: &out, onNotification, onHookPayload)
                 } else if byte == 0x1b {
                     state = .collectEsc
                 } else {
@@ -98,7 +107,7 @@ struct RemoteTmuxNotificationOSCFilter {
                 }
             case .collectEsc:
                 if byte == 0x5c {           // `ESC \` (ST) terminator
-                    finishCandidate(terminator: [0x1b, 0x5c], into: &out, onNotification)
+                    finishCandidate(terminator: [0x1b, 0x5c], into: &out, onNotification, onHookPayload)
                 } else {
                     // An OSC payload cannot legally contain a bare ESC; treat the
                     // sequence as malformed and pass everything through verbatim.
@@ -139,14 +148,15 @@ struct RemoteTmuxNotificationOSCFilter {
         return Data(out)
     }
 
-    /// While collecting, checks the payload against both notification prefixes
+    /// While collecting, checks the payload against every intercepted prefix
     /// and the buffer ceiling; a sequence that can no longer be a notification
     /// (or grew too large unfinished) is flushed verbatim and the remainder
     /// streams through as a plain OSC.
     private mutating func reclassifyCandidate(into out: inout [UInt8]) {
         if raw.count <= Self.maxBufferedBytes,
            Self.couldMatch(payload, prefix: Self.notifyPrefix)
-            || Self.couldMatch(payload, prefix: Self.osc9Prefix) {
+            || Self.couldMatch(payload, prefix: Self.osc9Prefix)
+            || Self.couldMatch(payload, prefix: Self.hookPrefix) {
             return
         }
         out.append(contentsOf: raw)
@@ -169,14 +179,17 @@ struct RemoteTmuxNotificationOSCFilter {
     private mutating func finishCandidate(
         terminator: [UInt8],
         into out: inout [UInt8],
-        _ onNotification: (_ title: String, _ body: String) -> Void
+        _ onNotification: (_ title: String, _ body: String) -> Void,
+        _ onHookPayload: (_ base64: String) -> Void
     ) {
         defer {
             raw.removeAll(keepingCapacity: true)
             payload.removeAll(keepingCapacity: true)
             state = .text
         }
-        if payload.starts(with: Self.notifyPrefix) {
+        if payload.starts(with: Self.hookPrefix) {
+            onHookPayload(Self.decode(payload.dropFirst(Self.hookPrefix.count)))
+        } else if payload.starts(with: Self.notifyPrefix) {
             let rest = payload.dropFirst(Self.notifyPrefix.count)
             if let separator = rest.firstIndex(of: UInt8(ascii: ";")) {
                 onNotification(

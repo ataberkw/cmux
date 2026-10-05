@@ -19,10 +19,18 @@ extension RemoteTmuxSessionMirror {
         // mirror surface has no local process TTY to attribute them by, so the
         // mirror strips the sequence and delivers the notification itself,
         // attributed to this pane's surface + workspace.
+        // The same filter lifts cmux's own agent-hook escape, the remote Claude
+        // hooks' only channel back to this Mac (see RemoteTmuxPaneHookEvent).
         var notificationFilter = notificationFilters[paneId] ?? RemoteTmuxNotificationOSCFilter()
-        let denotified = notificationFilter.filter(cleaned) { [weak self] title, body in
-            self?.deliverPaneNotification(paneId: paneId, title: title, body: body)
-        }
+        let denotified = notificationFilter.filter(
+            cleaned,
+            onNotification: { [weak self] title, body in
+                self?.deliverPaneNotification(paneId: paneId, title: title, body: body)
+            },
+            onHookPayload: { [weak self] base64 in
+                self?.deliverPaneHookEvent(paneId: paneId, base64: base64)
+            }
+        )
         notificationFilters[paneId] = notificationFilter
         routeOrQueueCleanedOutput(paneId: paneId, data: denotified)
     }
@@ -240,6 +248,21 @@ extension RemoteTmuxSessionMirror {
             title: title,
             body: body
         ))
+    }
+
+    /// Feeds one forwarded Claude hook event into the agent registry, bound to
+    /// this pane's surface, so the pane carries the same hook-driven state
+    /// (working / needs input / idle) as a local terminal. Seed and reconnect
+    /// replays never reach here: their filters drop hook payloads.
+    func deliverPaneHookEvent(paneId: Int, base64: String) {
+        guard let hook = RemoteTmuxPaneHookEvent(base64: base64),
+              let workspaceId = mirroredWorkspaceId,
+              let surfaceId = windowIdContaining(pane: paneId)
+                .flatMap({ windowMirrorByWindowId[$0]?.panel(forPane: paneId)?.id })
+        else { return }
+        TerminalController.shared.agentChatTranscriptService?.noteHookEvent(
+            hook.workstreamEvent(workspaceId: workspaceId, surfaceId: surfaceId, receivedAt: Date())
+        )
     }
 
     private func authoritativeGrid(forPane paneId: Int) -> (columns: Int, rows: Int)? {
