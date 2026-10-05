@@ -155,7 +155,8 @@ extension RemoteTmuxWindowMirror {
                 vertical: vertical,
                 windowID: windowId,
                 paneID: tmuxPaneID,
-                insertBefore: insertBefore
+                insertBefore: insertBefore,
+                workingDirectory: workingDirectory ?? cwdByPaneId[tmuxPaneID]
             )
         }
         guard focusIntent == .focusCreatedPane else {

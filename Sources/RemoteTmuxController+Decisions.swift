@@ -60,7 +60,8 @@ extension RemoteTmuxController {
             afterWindowId = mirror.windowId(forPanel: panelId)
         }
         let commandWorkingDirectory = Self.liveMirrorWindowWorkingDirectory(
-            workingDirectory,
+            workingDirectory
+                ?? workingDirectorySourcePanelId.flatMap(mirror.trackedWorkingDirectory(forWindowPanel:)),
             sourcePanelId: workingDirectorySourcePanelId,
             windowIdForPanel: mirror.windowId(forPanel:)
         )

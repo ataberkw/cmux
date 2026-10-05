@@ -470,6 +470,15 @@ final class RemoteTmuxSessionMirror: RemoteTmuxControlPaneMutationOwner {
 
     /// The pane that currently represents `windowId`'s tab: the user-focused mirror
     /// pane, else tmux's active pane, else the window's first pane.
+    /// The tracked remote cwd of the active pane in window-tab `panelId`, or nil
+    /// when that pane has not reported one yet. Covers a cwd that arrived before
+    /// its window tab existed, which never reaches the tab's reported directory.
+    func trackedWorkingDirectory(forWindowPanel panelId: UUID) -> String? {
+        windowId(forPanel: panelId)
+            .flatMap { activePane(inWindow: $0) }
+            .flatMap { cwdByPane[$0] }
+    }
+
     private func activePane(inWindow windowId: Int) -> Int? {
         windowMirrorByWindowId[windowId]?.activePaneId
             ?? connection.activePaneByWindow[windowId]

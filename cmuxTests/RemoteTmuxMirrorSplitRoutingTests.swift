@@ -81,6 +81,84 @@ import Testing
         )
     }
 
+    /// A split must start the new pane in the split pane's directory, like a
+    /// local split. Without `-c`, tmux starts it in the session's start
+    /// directory (`cd dt` + split button landed in `~`). The path is literal:
+    /// tmux expands `-c '#{pane_current_path}'` against the session's current
+    /// window, not the `-t` pane.
+    @Test func splitCommandStartsInTheSplitPaneDirectory() {
+        #expect(
+            RemoteTmuxSplitFocusIntent.preserveActivePane.command(
+                vertical: true,
+                windowID: 3,
+                paneID: 9,
+                workingDirectory: "/home/me/my dt"
+            ) == "split-window -d -v -t @3.%9 -c '/home/me/my dt'"
+        )
+        #expect(
+            RemoteTmuxSplitFocusIntent.focusCreatedPane.command(
+                vertical: false,
+                windowID: 3,
+                paneID: 9,
+                workingDirectory: "  "
+            ) == "split-window -P -F '#{pane_id}' -h -t @3.%9"
+        )
+        #expect(
+            RemoteTmuxSplitFocusIntent.focusCreatedPane.command(
+                vertical: false,
+                windowID: 3,
+                paneID: 9,
+                workingDirectory: "/tmp/a\nkill-server"
+            ) == "split-window -P -F '#{pane_id}' -h -t @3.%9"
+        )
+    }
+
+    /// The split button on a single-pane mirror tab routes through the session
+    /// mirror and must carry that pane's tracked remote cwd.
+    @Test func sessionMirrorTabSplitStartsInTheTrackedPaneDirectory() throws {
+        let fixture = SessionMirrorFixture()
+        defer { fixture.close() }
+        fixture.sessionMirror.cwdByPane[7] = "/home/me/dt"
+        let panelId = try #require(fixture.sessionMirror.panelIdByWindow[1])
+
+        #expect(fixture.sessionMirror.trackedWorkingDirectory(forWindowPanel: panelId) == "/home/me/dt")
+        #expect(fixture.sessionMirror.requestSplit(
+            windowPanelId: panelId,
+            vertical: false,
+            focusIntent: .preserveActivePane
+        ))
+        #expect(fixture.writtenCommands(prefix: "split-window ") == [
+            "split-window -d -h -t @1.%7 -c '/home/me/dt'",
+        ])
+    }
+
+    /// A split of a pane inside a multi-pane mirror window goes through the
+    /// window mirror and must use that pane's tracked cwd.
+    @Test func windowMirrorPaneSplitStartsInTheTrackedPaneDirectory() throws {
+        let harness = try RemoteTmuxMirrorCLIObservabilityTests.Harness(
+            connectedTransport: true
+        )
+        defer { harness.tearDown() }
+        harness.mirror.updatePaneCwd(paneId: 11, path: "/home/me/left")
+        harness.mirror.updatePaneCwd(paneId: 22, path: "/home/me/right")
+
+        #expect(harness.mirror.requestSplit(
+            fromPane: 11,
+            vertical: true,
+            focusIntent: .preserveActivePane
+        ))
+        let writer = try #require(harness.controlWriter)
+        let pipe = try #require(harness.controlPipe)
+        writer.close()
+        let commands = try #require(String(
+            bytes: try pipe.fileHandleForReading.readToEnd() ?? Data(),
+            encoding: .utf8
+        ))
+        #expect(commands.split(separator: "\n").filter { $0.hasPrefix("split-window ") } == [
+            "split-window -d -v -t @3.%11 -c '/home/me/left'",
+        ])
+    }
+
     @Test func projectedForkSplitPreservesBeforePlacementAndRemoteLaunchContext() throws {
         let command = try #require(
             RemoteTmuxSplitFocusIntent.focusCreatedPane.agentForkCommand(
@@ -213,5 +291,65 @@ import Testing
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
             }
         }
+    }
+}
+
+@MainActor
+private struct SessionMirrorFixture {
+    let connection: RemoteTmuxControlConnection
+    let writer: RemoteTmuxControlPipeWriter
+    let pipe: Pipe
+    let sessionMirror: RemoteTmuxSessionMirror
+
+    init() {
+        connection = RemoteTmuxControlConnection(
+            host: RemoteTmuxHost(destination: "split-cwd.test"),
+            sessionName: "work"
+        )
+        pipe = Pipe()
+        writer = RemoteTmuxControlPipeWriter(
+            handle: pipe.fileHandleForWriting,
+            label: "remote-tmux-split-cwd-test",
+            maxPendingBytes: 1 << 20,
+            onFailure: {}
+        )
+        connection.installStdinWriterForTesting(writer)
+        connection.handleMessageForTesting(.enter)
+        connection.handleMessageForTesting(
+            .commandResult(commandNumber: 0, lines: [], isError: false)
+        )
+        connection.windowsByID[1] = RemoteTmuxWindow(
+            id: 1,
+            width: 80,
+            height: 24,
+            layout: RemoteTmuxLayoutNode(width: 80, height: 24, x: 0, y: 0, content: .pane(7))
+        )
+        connection.windowOrder = [1]
+        connection.recordPublishedPaneOwnership(windowId: 1, paneIds: [7])
+        let manager = TabManager(autoWelcomeIfNeeded: false)
+        let workspace = manager.selectedWorkspace!
+        workspace.isRemoteTmuxMirror = true
+        sessionMirror = RemoteTmuxSessionMirror(
+            host: connection.host,
+            sessionName: "work",
+            connection: connection,
+            tabManager: manager,
+            workspace: workspace
+        )
+        sessionMirror.rebuild()
+    }
+
+    func writtenCommands(prefix: String) -> [String] {
+        writer.close()
+        let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+        return String(decoding: data, as: UTF8.self)
+            .split(separator: "\n")
+            .map(String.init)
+            .filter { $0.hasPrefix(prefix) }
+    }
+
+    func close() {
+        sessionMirror.detachObserver()
+        writer.close()
     }
 }
