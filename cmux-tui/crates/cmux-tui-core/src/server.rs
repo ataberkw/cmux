@@ -112,6 +112,7 @@ mod pending_handoff;
 mod renderer_grant;
 use line_connection::{handle_connection_with_permit, serve_line_connection};
 mod bookmarks;
+mod browser_host_command;
 mod browser_profiles;
 mod close_tabs_command;
 mod conversation_tabs_wire;
@@ -193,16 +194,14 @@ pub const FRONTEND_JOURNAL_CAPABILITY: &str = "frontend-journal-v1";
 const LOCAL_JOURNAL_PRINCIPAL: &str = "cmux.local-owner";
 pub const VIEW_ATTACHMENT_LEASE_CAPABILITY: &str = "view-attachment-lease-v1";
 pub const VIEW_ATTACHMENT_DETACH_CAPABILITY: &str = "view-attachment-detach-v1";
-/// Shared terminal sizing (`docs/shared-terminal-sizing.md`): `size-state`
-/// events, `set-size-policy`, `set-size-counts`, `get-size-state`, relay
-/// sub-views on `resize-attached-view`, client identity on `set-client-info`,
-/// and `reason`/`by` on `detached`.
+/// Shared terminal sizing (`docs/shared-terminal-sizing.md`): `size-state` events,
+/// `set-size-policy`, `set-size-counts`, `get-size-state`, relay sub-views on
+/// `resize-attached-view`, client identity on `set-client-info`, and `reason`/`by` on `detached`.
 pub const SHARED_SIZING_CAPABILITY: &str = "shared-sizing-v1";
-/// A client that lists this in `set-client-info` survives losing its own
-/// view of a terminal: `detach-client` naming that view's participant
-/// detaches the view only (event `detached` with `scope:"view"`) and keeps
-/// the connection and its relay sub-views; `reattach-view` restores it. The
-/// daemon advertises it in `identify`.
+/// A client that lists this in `set-client-info` survives losing its own view of a terminal:
+/// `detach-client` naming that view's participant detaches the view only (event `detached` with
+/// `scope:"view"`) and keeps the connection and its relay sub-views; `reattach-view` restores it.
+/// The daemon advertises it in `identify`.
 pub const SIZING_VIEW_DETACH_CAPABILITY: &str = "sizing-view-detach-v1";
 pub const TERMINAL_COLOR_OVERRIDES_CAPABILITY: &str = "terminal-color-overrides-v1";
 /// Byte viewers that write their own sequences after a replay advertise this
@@ -329,8 +328,7 @@ pub const TERMINAL_SHELL_ARGS_CAPABILITY: &str = "terminal-shell-args-v1";
 /// adds no integration of its own.
 pub const TERMINAL_FRONTEND_SHELL_INTEGRATION_CAPABILITY: &str =
     "terminal-frontend-shell-integration-v1";
-/// `env`, `terminal_id` and `shell_args` on `new-screen`, and `terminal_id`
-/// in its result.
+/// `env`, `terminal_id` and `shell_args` on `new-screen`, and `terminal_id` in its result.
 pub const SCREEN_TERMINAL_ENV_CAPABILITY: &str = "screen-terminal-env-v1";
 /// Notifications name who posted them: `source` (`cli`, `terminal`, `agent`, `daemon`) on
 /// `notify`, the `notification` event, the tab marker and `list-notifications`; the daemon
@@ -937,7 +935,7 @@ fn default_socket_path_in_runtime_dir(session: &str, runtime_dir: PathBuf) -> Pa
 }
 
 #[cfg(unix)]
-fn unix_socket_path_fits(path: &Path) -> bool {
+pub(crate) fn unix_socket_path_fits(path: &Path) -> bool {
     cmux_unix_socket::fits(path)
 }
 
@@ -1121,6 +1119,7 @@ fn detach_actor(mux: &Mux, requester: u64, by: Option<TerminalDetachActor>) -> T
 #[serde(tag = "cmd", rename_all = "kebab-case")]
 enum Command {
     Identify,
+    BrowserHostProvider,
     /// Private, connection-scoped guest-to-frontend OS browser opening.
     UrlOpenSubscribe {
         terminal_ids: Vec<String>,
@@ -12817,6 +12816,7 @@ fn handle_command_with_cancellation(
             }
             Ok(serde_json::to_value(server_stats(mux))?)
         }
+        Command::BrowserHostProvider => browser_host_command::run(mux, client),
         Command::Identify => {
             let (registry_id, generation) = mux.registry_identity();
             Ok(json!({
@@ -15750,8 +15750,7 @@ fn list_workspaces_reply(mux: &Mux) -> anyhow::Result<Value> {
     Ok(workspaces)
 }
 
-/// The reply of a placement command: the new view and the terminal it
-/// shows, after applying `keep`.
+/// The reply of a placement command: the new view and the terminal it shows, after applying `keep`.
 fn placed_terminal_result(
     mux: &Mux,
     surface: &crate::Surface,
