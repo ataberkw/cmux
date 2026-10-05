@@ -51,6 +51,9 @@ public struct CustomSidebarContextSnapshot: Sendable, Equatable {
     public let totalUnreadCount: Int
     /// The wall-clock instant the `clock` object is derived from.
     public let now: Date
+    /// The hosting window's id (`windowId`), the target `workspace.move_to_window`
+    /// takes; `nil` when the sidebar is not in a main window.
+    public let windowId: UUID?
 
     /// Creates a context snapshot from already-resolved values.
     public init(
@@ -59,7 +62,8 @@ public struct CustomSidebarContextSnapshot: Sendable, Equatable {
         selectedWorkspaceId: UUID?,
         selectedWorkspaceTitle: String,
         totalUnreadCount: Int,
-        now: Date
+        now: Date,
+        windowId: UUID? = nil
     ) {
         self.workspaces = workspaces
         self.groups = groups
@@ -67,5 +71,6 @@ public struct CustomSidebarContextSnapshot: Sendable, Equatable {
         self.selectedWorkspaceTitle = selectedWorkspaceTitle
         self.totalUnreadCount = totalUnreadCount
         self.now = now
+        self.windowId = windowId
     }
 }

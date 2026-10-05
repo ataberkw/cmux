@@ -264,7 +264,8 @@ extension ContentView {
             selectedWorkspaceId: selectedId,
             selectedWorkspaceTitle: selectedWorkspace?.customTitle ?? selectedWorkspace?.title ?? "",
             totalUnreadCount: sidebarUnread.totalUnreadCount,
-            now: now
+            now: now,
+            windowId: AppDelegate.shared?.windowId(for: tabManager)
         )
         return CustomSidebarDataContextBuilder().dataContext(for: snapshot)
     }

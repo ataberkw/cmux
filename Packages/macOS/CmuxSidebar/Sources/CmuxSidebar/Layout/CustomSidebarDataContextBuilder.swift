@@ -28,7 +28,7 @@ public struct CustomSidebarDataContextBuilder {
     ///
     /// Mirrors the original `customSidebarDataContext(now:)` output exactly:
     /// `workspaces`, `workspaceCount`, `selectedTitle`, `selectedId`,
-    /// `unreadTotal`, and `clock`.
+    /// `unreadTotal`, `clock`, and `windowId` (empty when unknown).
     public func dataContext(for snapshot: CustomSidebarContextSnapshot) -> [String: SwiftValue] {
         let workspaces: [SwiftValue] = snapshot.workspaces.map(workspaceValue(_:))
         let components = calendar.dateComponents(
@@ -54,6 +54,7 @@ public struct CustomSidebarDataContextBuilder {
             "selectedId": .string(snapshot.selectedWorkspaceId?.uuidString ?? ""),
             "unreadTotal": .int(snapshot.totalUnreadCount),
             "clock": clock,
+            "windowId": .string(snapshot.windowId?.uuidString ?? ""),
         ]
     }
 

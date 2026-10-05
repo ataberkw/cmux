@@ -58,12 +58,14 @@ struct CustomSidebarDataContextBuilderTests {
     func topLevelKeys() {
         let builder = CustomSidebarDataContextBuilder(calendar: fixedCalendar())
         let selectedId = UUID()
+        let windowId = UUID()
         let snapshot = CustomSidebarContextSnapshot(
             workspaces: [minimalWorkspace(id: selectedId)],
             selectedWorkspaceId: selectedId,
             selectedWorkspaceTitle: "Picked",
             totalUnreadCount: 7,
-            now: Date(timeIntervalSince1970: 0)
+            now: Date(timeIntervalSince1970: 0),
+            windowId: windowId
         )
 
         let context = builder.dataContext(for: snapshot)
@@ -74,6 +76,8 @@ struct CustomSidebarDataContextBuilderTests {
         #expect(context["unreadTotal"] == .int(7))
         #expect(context["workspaces"]?.iterationValues?.count == 1)
         #expect(context["clock"]?.member("epoch") == .int(0))
+        // The target `workspace.move_to_window` needs for a drop into this window.
+        #expect(context["windowId"] == .string(windowId.uuidString))
     }
 
     @Test("Empty selection yields empty selectedId string")
@@ -91,6 +95,7 @@ struct CustomSidebarDataContextBuilderTests {
 
         #expect(context["selectedId"] == .string(""))
         #expect(context["workspaceCount"] == .int(0))
+        #expect(context["windowId"] == .string(""))
     }
 
     @Test("Clock components derive from the injected calendar")

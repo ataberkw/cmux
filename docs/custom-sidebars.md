@@ -285,6 +285,8 @@ with:
   `dirty`, `ports` (array of Int).
 - `workspaceCount` — Int. `selectedTitle` — active workspace's title.
   `selectedId` — its id. `unreadTotal` — total unread notifications.
+  `windowId` — the hosting window's id (the `window_id` for
+  `workspace.move_to_window`; empty when unknown).
 - `clock` — `{ time ("HH:mm:ss"), hour, minute, second, weekday, epoch }`. The
   sidebar re-renders about once a second, so clocks/countdowns and workspace
   changes are live.
@@ -440,6 +442,12 @@ other, so existing sidebars keep working:
         .dropDestination(kind: "workspace") { ws in
             cmux("workspace.move_to_window", workspace_id: ws, window_id: windowId)
         }
+
+With the in-process renderer, a drag released over another cmux window's
+custom sidebar lands on that sidebar's target under the pointer, which is
+highlighted while you drag. The example above moves a workspace into the
+window it is dropped on (dropping it on its own window does nothing). The
+remote renderer keeps drags inside their own sidebar.
 
 ## Two-column (Finder-style) example
 

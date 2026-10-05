@@ -9,22 +9,31 @@ import SwiftUI
 /// receiving the pointer.
 public struct SidebarDragFeedbackOverlay: View {
     private let session: SidebarDragSession?
+    private let remoteHover: SidebarDragSession.Hover?
 
     /// Creates the overlay for a session (`nil` draws nothing).
-    public init(session: SidebarDragSession?) {
+    ///
+    /// - Parameters:
+    ///   - session: The drag started in this sidebar, if any.
+    ///   - remoteHover: The target a drag from another window would land on
+    ///     here (highlight only; the source is drawn in its own window).
+    public init(session: SidebarDragSession?, remoteHover: SidebarDragSession.Hover? = nil) {
         self.session = session
+        self.remoteHover = remoteHover
     }
 
     public var body: some View {
         GeometryReader { proxy in
-            if let session {
+            if session != nil || remoteHover != nil {
                 let origin = proxy.frame(in: .global).origin
                 ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .strokeBorder(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                        .frame(width: session.sourceFrame.width, height: session.sourceFrame.height)
-                        .offset(x: session.sourceFrame.minX - origin.x, y: session.sourceFrame.minY - origin.y)
-                    if let hover = session.hover {
+                    if let session {
+                        RoundedRectangle(cornerRadius: 3)
+                            .strokeBorder(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                            .frame(width: session.sourceFrame.width, height: session.sourceFrame.height)
+                            .offset(x: session.sourceFrame.minX - origin.x, y: session.sourceFrame.minY - origin.y)
+                    }
+                    if let hover = session?.hover ?? remoteHover {
                         let rect = hover.highlightFrame
                         RoundedRectangle(cornerRadius: 3)
                             .fill(Color.accentColor.opacity(0.3))

@@ -11058,7 +11058,8 @@ struct VerticalTabsSidebar: View, Equatable {
             selectedWorkspaceId: selectedId,
             selectedWorkspaceTitle: selectedWorkspace?.customTitle ?? selectedWorkspace?.title ?? "",
             totalUnreadCount: unreadSnapshot.totalUnreadCount,
-            now: now
+            now: now,
+            windowId: AppDelegate.shared?.windowId(for: tabManager)
         )
         return CustomSidebarDataContextBuilder().dataContext(for: snapshot)
     }
