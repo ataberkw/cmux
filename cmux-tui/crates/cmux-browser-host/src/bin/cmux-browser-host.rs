@@ -241,6 +241,7 @@ mod unix {
         let mut stdout = std::io::stdout().lock();
         // A daemon that cannot read the ready line is gone: stop with it.
         if writeln!(stdout, "ready").and_then(|()| stdout.flush()).is_err() {
+            // crash-allow: a supervised host whose daemon is gone stops; no state to save (sessions are in memory).
             std::process::exit(0);
         }
         drop(stdout);
@@ -249,10 +250,12 @@ mod unix {
             let mut stdin = std::io::stdin().lock();
             // Bytes from the daemon mean nothing; only the end does.
             while matches!(stdin.read(&mut sink), Ok(n) if n > 0) {}
+            // crash-allow: the end of stdin means the daemon stopped or died; the host stops with it.
             std::process::exit(0);
         });
         if spawned.is_err() {
             eprintln!("cmux-browser-host: cannot watch stdin; stopping");
+            // crash-allow: without the stdin watch a supervised host could outlive its daemon.
             std::process::exit(1);
         }
     }
