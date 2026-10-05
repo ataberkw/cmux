@@ -1,5 +1,5 @@
 // This file is generated. Do not edit by hand.
-// cmux-tui mux protocol 12, IR 2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601.
+// cmux-tui mux protocol 12, IR a7e470c42ef8be9cb978402a0efc10aa6e593d9b21091b059163c61055dbc7dd.
 // The emitter owns this layout so generation is independent of the installed rustfmt.
 
 use super::metadata::*;
@@ -2622,6 +2622,20 @@ pub struct SwapPaneRequest {
 pub type SwapPaneResult = T::EmptyResult;
 
 #[rustfmt::skip]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TerminalClipboardReplyRequest {
+    pub request_id: String,
+    #[serde(default, skip_serializing_if = "Optional::is_missing")]
+    pub text: Optional<String>,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TerminalClipboardSubscribeRequest {
+    pub terminal_ids: Vec<String>,
+}
+
+#[rustfmt::skip]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct TerminalEventsRequest {
     #[serde(default, deserialize_with = "crate::presence::deserialize_optional_non_null", skip_serializing_if = "Option::is_none")]
@@ -4055,6 +4069,14 @@ impl CmuxClient {
 
     pub fn swap_pane(&mut self, request: SwapPaneRequest) -> Result<SwapPaneResult> {
         self.execute(&SWAP_PANE_METADATA, &request)
+    }
+
+    pub fn terminal_clipboard_reply(&mut self, request: TerminalClipboardReplyRequest) -> Result<T::TerminalClipboardReplyResult> {
+        self.execute(&TERMINAL_CLIPBOARD_REPLY_METADATA, &request)
+    }
+
+    pub fn terminal_clipboard_subscribe(&mut self, request: TerminalClipboardSubscribeRequest) -> Result<CmuxStream> {
+        self.execute_stream(&TERMINAL_CLIPBOARD_SUBSCRIBE_METADATA, &request)
     }
 
     pub fn terminal_events(&mut self, request: TerminalEventsRequest) -> Result<T::TerminalEventsResult> {

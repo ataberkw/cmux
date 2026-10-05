@@ -1,5 +1,5 @@
 // This file is generated. Do not edit by hand.
-// cmux-tui mux protocol 12, IR 2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601.
+// cmux-tui mux protocol 12, IR a7e470c42ef8be9cb978402a0efc10aa6e593d9b21091b059163c61055dbc7dd.
 // The emitter owns this layout so generation is independent of the installed rustfmt.
 
 use crate::{Nullable, Optional};
@@ -1624,6 +1624,49 @@ pub struct Tab {
     #[serde(default, skip_serializing_if = "Optional::is_missing")]
     pub terminal_resource_id: Optional<String>,
     pub title: String,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TerminalClipboardHost {
+    pub kind: TerminalClipboardHostKind,
+    #[serde(default, deserialize_with = "crate::presence::deserialize_optional_non_null", skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminalClipboardHostKind {
+    #[serde(rename = "local")]
+    Local,
+    #[serde(rename = "remote")]
+    Remote,
+    #[serde(rename = "cloud")]
+    Cloud,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminalClipboardLocation {
+    #[serde(rename = "standard")]
+    Standard,
+    #[serde(rename = "selection")]
+    Selection,
+    #[serde(rename = "primary")]
+    Primary,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TerminalClipboardReplyResult {
+    pub accepted: bool,
+    pub granted: bool,
+}
+
+#[rustfmt::skip]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TerminalClipboardSubscribeResult {
+    pub clipboard_read_ready: bool,
 }
 
 #[rustfmt::skip]

@@ -387,8 +387,8 @@
     },
     {
       "path": "Commands.java",
-      "sha256": "6229ab97a4192dd97ae8a7a349751b6742e5a694bcb3dd7231cae5d3c36ef3b3",
-      "size": 57587
+      "sha256": "d4ed9a687de56d3492649b65566d9d91e442d59689de46285b8f16a4305da5ac",
+      "size": 58170
     },
     {
       "path": "ConfigReloadRequestedEvent.java",
@@ -727,8 +727,8 @@
     },
     {
       "path": "Events.java",
-      "sha256": "63277913e57a865b3d815a7225fb126230c82737270f39244376aa585d944319",
-      "size": 11505
+      "sha256": "adab1d640bf187aa55277caa44ea853a1a1a9ead5db4d83e5d91052a5c24eac2",
+      "size": 12029
     },
     {
       "path": "ExportLayoutRequest.java",
@@ -807,8 +807,8 @@
     },
     {
       "path": "GeneratedCmuxClient.java",
-      "sha256": "aba7002ce8bcf68f70072d3a7cc33918c58a435a35150fc65ee67313a0520506",
-      "size": 50343
+      "sha256": "02f2bbeb73ed09665f8124e7d9557c3f559882d8cebdc7431f448eba7871458b",
+      "size": 50856
     },
     {
       "path": "GetBrowserProviderRequest.java",
@@ -1397,8 +1397,8 @@
     },
     {
       "path": "Protocol.java",
-      "sha256": "69892e62434f03335a1b27a4062006a0c616b14a2edbf21bf36f4cc05af68e12",
-      "size": 4943
+      "sha256": "894f666fc3059296267acdb0f3421e7dcd7d3f52bc33e72414e04393b0cfc386",
+      "size": 5142
     },
     {
       "path": "ProtocolEvent.java",
@@ -2116,6 +2116,51 @@
       "size": 4943
     },
     {
+      "path": "TerminalClipboardHost.java",
+      "sha256": "504befee4e7aea3d5b13de22a1dbc283f566d430cda3670c00615fb416d1e7f1",
+      "size": 2551
+    },
+    {
+      "path": "TerminalClipboardHostKind.java",
+      "sha256": "5428f7fece15000d02ba00758c7a7f2997343cfb21fa4becd0a72b0c4b258c7a",
+      "size": 967
+    },
+    {
+      "path": "TerminalClipboardLocation.java",
+      "sha256": "d58aa3c038bf98147f95fefc99eff630420887cbb363797399e46d8785837881",
+      "size": 983
+    },
+    {
+      "path": "TerminalClipboardReadCancelledEvent.java",
+      "sha256": "332f062ac33f2c6f369ff1be4094a2c386240c2be3e93f6271ee2bda57e3a9c1",
+      "size": 2570
+    },
+    {
+      "path": "TerminalClipboardReadEvent.java",
+      "sha256": "8ea05e90127009f19cf930976004d5a53fa6701b2986fb6538ff0b35e668596b",
+      "size": 4687
+    },
+    {
+      "path": "TerminalClipboardReplyRequest.java",
+      "sha256": "109361cdc2ac73b01c466f500a9fed1c30f98fc7dcf4a77aee79d47f5a6971bf",
+      "size": 2801
+    },
+    {
+      "path": "TerminalClipboardReplyResult.java",
+      "sha256": "c6d863dbc59f2081da32759c22c1bb9ea1b3b1e5f31452af66ca3499cbafd68a",
+      "size": 2737
+    },
+    {
+      "path": "TerminalClipboardSubscribeRequest.java",
+      "sha256": "7718eaabd376aa2a5ffcf46c883853ab4edce4dbd603da67af5281e94342dd2b",
+      "size": 2404
+    },
+    {
+      "path": "TerminalClipboardSubscribeResult.java",
+      "sha256": "1bb7896caf1806336719b1d5b50ab1a87d1661f4da28f02f8fa46a2cf1dfecae",
+      "size": 2317
+    },
+    {
       "path": "TerminalColorOverrides.java",
       "sha256": "24c400ecfca88246b64e13df44b3660d8463d94af76a8382ca5753065e7ddd08",
       "size": 3158
@@ -2472,7 +2517,7 @@
     }
   ],
   "format": 1,
-  "ir_sha256": "2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601",
+  "ir_sha256": "a7e470c42ef8be9cb978402a0efc10aa6e593d9b21091b059163c61055dbc7dd",
   "language": "java",
   "mux_protocol": 12,
   "schema_version": 2

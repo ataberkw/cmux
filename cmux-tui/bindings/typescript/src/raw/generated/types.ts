@@ -1,5 +1,5 @@
 /* This file is generated. Do not edit by hand. */
-/* cmux-tui mux protocol 12, IR 2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601. */
+/* cmux-tui mux protocol 12, IR a7e470c42ef8be9cb978402a0efc10aa6e593d9b21091b059163c61055dbc7dd. */
 
 
 /** JSON accepted by the wire codec. bigint is serialized as an exact JSON integer. */
@@ -976,6 +976,24 @@ export type Tab = {
 
 /** Opaque JSON: A tab named by its numeric surface id or its public tab_ id. */
 export type TabRef = JsonValue;
+
+export type TerminalClipboardHost = {
+  "kind": TerminalClipboardHostKind;
+  "name"?: string;
+};
+
+export type TerminalClipboardHostKind = "local" | "remote" | "cloud";
+
+export type TerminalClipboardLocation = "standard" | "selection" | "primary";
+
+export type TerminalClipboardReplyResult = {
+  "accepted": boolean;
+  "granted": boolean;
+};
+
+export type TerminalClipboardSubscribeResult = {
+  "clipboard_read_ready": boolean;
+};
 
 export type TerminalColorOverrides = {
   "bg": (ColorHex) | null;
