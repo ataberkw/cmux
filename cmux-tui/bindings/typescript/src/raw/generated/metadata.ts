@@ -1,10 +1,10 @@
 /* This file is generated. Do not edit by hand. */
-/* cmux-tui mux protocol 12, IR 0228313c21b75745c349140874aa1a9358b4bd6bb65f8ba88a1261b30fecc6c0. */
+/* cmux-tui mux protocol 12, IR 2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601. */
 
 
 export const SDK_SCHEMA_VERSION = 2 as const;
 export const MUX_PROTOCOL_VERSION = 12 as const;
-export const SDK_IR_SHA256 = "0228313c21b75745c349140874aa1a9358b4bd6bb65f8ba88a1261b30fecc6c0" as const;
+export const SDK_IR_SHA256 = "2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601" as const;
 export const PROTOCOL = {
   "id_type": "uint64",
   "javascript_id_policy": "All protocol identifiers are uint64 JSON numbers. JavaScript and TypeScript SDKs must decode them losslessly as bigint (or validated decimal strings at their public boundary), and must not expose IEEE-754 number ids. Pairing request ids, revisions, timestamps, frame sequences, and reservation ids follow the same rule.",
@@ -216,6 +216,17 @@ export const COMMAND_METADATA = {
     "constraints": [
       "Acknowledges the exact rendered browser frame for this connection.",
       "Requires browser-pointer-frame-guard-v1."
+    ]
+  },
+  "browser-host-provider": {
+    "authority": "local-admin",
+    "since": 12,
+    "capability": "browser-host-provider-v1",
+    "fields": {},
+    "stream": null,
+    "constraints": [
+      "Only the verified local app connection (client-hello role main plus a proof) gets a result; every other caller gets error_code origin.forbidden.",
+      "The secret is never journaled, logged or put in an event."
     ]
   },
   "browser-insert-text": {
@@ -3433,6 +3444,36 @@ export const TYPE_SCHEMAS: Readonly<Record<string, TypeSchema>> = {
         "type": {
           "kind": "scalar",
           "name": "uint32"
+        }
+      }
+    },
+    "kind": "object"
+  },
+  "BrowserHostProviderResult": {
+    "additional_properties": false,
+    "fields": {
+      "host_pid": {
+        "nullable": false,
+        "presence": "required",
+        "type": {
+          "kind": "scalar",
+          "name": "uint32"
+        }
+      },
+      "secret": {
+        "nullable": false,
+        "presence": "required",
+        "type": {
+          "kind": "scalar",
+          "name": "string"
+        }
+      },
+      "socket": {
+        "nullable": false,
+        "presence": "required",
+        "type": {
+          "kind": "scalar",
+          "name": "string"
         }
       }
     },
@@ -10730,6 +10771,17 @@ export const COMMAND_SCHEMAS: Readonly<Record<string, CommandSchema>> = {
     "result": {
       "kind": "ref",
       "name": "EmptyResult"
+    }
+  },
+  "browser-host-provider": {
+    "request": {
+      "additional_properties": false,
+      "fields": {},
+      "kind": "object"
+    },
+    "result": {
+      "kind": "ref",
+      "name": "BrowserHostProviderResult"
     }
   },
   "browser-insert-text": {

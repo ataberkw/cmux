@@ -44,6 +44,10 @@ mod unix {
         /// An inherited fd that carries the per-launch provider secret
         /// (the daemon writes it and closes its end). Never argv or env.
         provider_secret_fd: Option<i32>,
+        /// Started by the daemon (`--supervised`): print `ready` on stdout
+        /// once both sockets listen, and exit when stdin reaches its end
+        /// (the daemon closed it or died), so no host outlives its daemon.
+        supervised: bool,
     }
 
     fn parse(args: &[String]) -> Result<Options, String> {
@@ -55,6 +59,7 @@ mod unix {
             timeout_ms: None,
             code: None,
             provider_secret_fd: None,
+            supervised: false,
         };
         let mut iter = args.iter();
         while let Some(arg) = iter.next() {
@@ -85,6 +90,7 @@ mod unix {
                             .map_err(|_| "--provider-secret-fd: expected a file descriptor")?,
                     );
                 }
+                "--supervised" => options.supervised = true,
                 "-" => {
                     let mut code = String::new();
                     std::io::stdin()
@@ -216,12 +222,38 @@ mod unix {
             return 1;
         }
         let host = Arc::new(Host::new(engines, cwd));
+        if options.supervised {
+            supervise_from_stdin();
+        }
         match serve(listener, host) {
             Ok(()) => 0,
             Err(error) => {
                 eprintln!("cmux-browser-host: {error}");
                 1
             }
+        }
+    }
+
+    /// `--supervised`: both sockets listen now, so the daemon may hand out
+    /// the credentials; then a thread waits for the end of stdin (the
+    /// daemon's end of the pipe closes when it stops or dies) and exits.
+    fn supervise_from_stdin() {
+        let mut stdout = std::io::stdout().lock();
+        // A daemon that cannot read the ready line is gone: stop with it.
+        if writeln!(stdout, "ready").and_then(|()| stdout.flush()).is_err() {
+            std::process::exit(0);
+        }
+        drop(stdout);
+        let spawned = std::thread::Builder::new().name("supervisor-stdin".into()).spawn(|| {
+            let mut sink = [0_u8; 256];
+            let mut stdin = std::io::stdin().lock();
+            // Bytes from the daemon mean nothing; only the end does.
+            while matches!(stdin.read(&mut sink), Ok(n) if n > 0) {}
+            std::process::exit(0);
+        });
+        if spawned.is_err() {
+            eprintln!("cmux-browser-host: cannot watch stdin; stopping");
+            std::process::exit(1);
         }
     }
 
