@@ -14,7 +14,7 @@
 namespace cmux::raw {
 
 inline constexpr std::uint32_t kMuxProtocolVersion = 12U;
-inline constexpr std::string_view kProtocolIrSha256 = "0228313c21b75745c349140874aa1a9358b4bd6bb65f8ba88a1261b30fecc6c0";
+inline constexpr std::string_view kProtocolIrSha256 = "2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601";
 
 struct AgentRecord;
 enum class AgentReportSource;
@@ -27,6 +27,7 @@ struct AttachedViewOutcomeResult;
 struct AttachedViewResizeResult;
 struct Base64;
 struct BrowserFrame;
+struct BrowserHostProviderResult;
 enum class BrowserProviderAuthentication;
 struct BrowserProviderSnapshot;
 struct BrowserProviderTarget;
@@ -195,6 +196,7 @@ struct BrowserActivateRequest;
 struct BrowserBackRequest;
 struct BrowserForwardRequest;
 struct BrowserFramePresentedRequest;
+struct BrowserHostProviderRequest;
 struct BrowserInsertTextRequest;
 struct BrowserKeyRequest;
 struct BrowserKeyPressRequest;
@@ -731,6 +733,17 @@ struct BrowserFramePresentedRequest {
     std::uint64_t frame_seq{};
     Id surface{};
     friend bool operator==(const BrowserFramePresentedRequest&, const BrowserFramePresentedRequest&) = default;
+};
+
+struct BrowserHostProviderRequest {
+    friend bool operator==(const BrowserHostProviderRequest&, const BrowserHostProviderRequest&) = default;
+};
+
+struct BrowserHostProviderResult {
+    std::uint32_t host_pid{};
+    std::string secret{};
+    std::string socket{};
+    friend bool operator==(const BrowserHostProviderResult&, const BrowserHostProviderResult&) = default;
 };
 
 struct BrowserInsertTextRequest {
@@ -4387,6 +4400,12 @@ struct Codec<BrowserFrame> {
 };
 
 template <>
+struct Codec<BrowserHostProviderResult> {
+    static Result<Json> encode(const BrowserHostProviderResult& value);
+    static Result<BrowserHostProviderResult> decode(const Json& value);
+};
+
+template <>
 struct Codec<BrowserProviderAuthentication> {
     static Result<Json> encode(const BrowserProviderAuthentication& value);
     static Result<BrowserProviderAuthentication> decode(const Json& value);
@@ -5392,6 +5411,12 @@ template <>
 struct Codec<BrowserFramePresentedRequest> {
     static Result<Json> encode(const BrowserFramePresentedRequest& value);
     static Result<BrowserFramePresentedRequest> decode(const Json& value);
+};
+
+template <>
+struct Codec<BrowserHostProviderRequest> {
+    static Result<Json> encode(const BrowserHostProviderRequest& value);
+    static Result<BrowserHostProviderRequest> decode(const Json& value);
 };
 
 template <>

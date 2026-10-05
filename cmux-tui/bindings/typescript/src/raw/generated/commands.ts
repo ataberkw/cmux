@@ -1,5 +1,5 @@
 /* This file is generated. Do not edit by hand. */
-/* cmux-tui mux protocol 12, IR 0228313c21b75745c349140874aa1a9358b4bd6bb65f8ba88a1261b30fecc6c0. */
+/* cmux-tui mux protocol 12, IR 2a1ead247e86363995732133200913f110429784a4e0888187a4094ac6c1a601. */
 
 
 import type * as T from "./types.js";
@@ -116,6 +116,11 @@ export interface BrowserFramePresentedRequest extends CmuxRequestBase {
   "surface": T.Id;
 }
 export type BrowserFramePresentedResult = T.EmptyResult;
+
+/** Protocol v12; authority: local-admin. */
+export interface BrowserHostProviderRequest extends CmuxRequestBase {
+  cmd: "browser-host-provider";
+}
 
 /** Protocol v6; authority: frontend. */
 export interface BrowserInsertTextRequest extends CmuxRequestBase {
@@ -2070,6 +2075,7 @@ export type CmuxRequest =
   | BrowserBackRequest
   | BrowserForwardRequest
   | BrowserFramePresentedRequest
+  | BrowserHostProviderRequest
   | BrowserInsertTextRequest
   | BrowserKeyRequest
   | BrowserKeyPressRequest
@@ -2355,6 +2361,14 @@ export interface CmuxCommandDefinitionMap {
     authority: "frontend";
     since: 10;
     capability: "browser-pointer-frame-guard-v1";
+    stream: null;
+  };
+  "browser-host-provider": {
+    request: BrowserHostProviderRequest;
+    result: T.BrowserHostProviderResult;
+    authority: "local-admin";
+    since: 12;
+    capability: "browser-host-provider-v1";
     stream: null;
   };
   "browser-insert-text": {

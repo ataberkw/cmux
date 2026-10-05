@@ -387,9 +387,8 @@ fn require_non_dumpable_provider_process() -> anyhow::Result<()> {
 #[cfg(target_os = "linux")]
 fn scrub_initial_environment_variable(name: &str) {
     let prefix = format!("{name}=");
-    // Linux exposes the initial environment block through /proc even after
-    // unsetenv. Clear the value in that original block before removing the
-    // entry from the process environment.
+    // Linux exposes the initial environment block through /proc even after unsetenv. Clear the
+    // value in that original block before removing the entry from the process environment.
     unsafe {
         let mut cursor = environ;
         while !cursor.is_null() && !(*cursor).is_null() {
@@ -675,10 +674,9 @@ fn parse_args_result(args: impl IntoIterator<Item = String>) -> Result<Args, Str
     let mut args = args.into_iter().peekable();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            // Accept the attach verb wherever startup options are accepted.
-            // This matches the usual CLI convention that global options may
-            // precede a subcommand, while preserving the existing
-            // `cmux attach ...` spelling.
+            // Accept the attach verb wherever startup options are accepted. This matches the usual
+            // CLI convention that global options may precede a subcommand, while preserving the
+            // existing `cmux attach ...` spelling.
             "attach" => {
                 if out.attach {
                     return Err(localization::catalog().startup.duplicate_attach.to_string());
@@ -2215,6 +2213,7 @@ fn run_server(
     }
     surface_options.extra_env.push(("CMUX_TUI_SOCKET".into(), socket_path.display().to_string()));
     surface_options.extra_env.push(("CMUX_MUX_SOCKET".into(), socket_path.display().to_string()));
+    cmux_tui_core::browser_host::add_terminal_env(&socket_path, &mut surface_options);
     #[cfg(unix)]
     if args.agent_browser_provider {
         agent_browser_provider::configure_surface_options(&mut surface_options)?;
@@ -2313,6 +2312,7 @@ fn run_server(
     ));
     mux.configure_sidebar_plugin(config.sidebar.plugin.clone());
     mux.configure_journal_plugin(config.agents.plugin.clone());
+    mux.configure_browser_host(&socket_path);
     #[cfg(target_os = "linux")]
     let _provider_management = provider_management_listener
         .map(|listener| cmux_tui_core::provider_management::serve(listener, mux.clone()))

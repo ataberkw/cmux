@@ -11,6 +11,7 @@
 mod agent_hooks;
 mod apps;
 pub mod backoff;
+pub mod browser_host;
 mod browser;
 mod browser_provider;
 mod conversation_search;

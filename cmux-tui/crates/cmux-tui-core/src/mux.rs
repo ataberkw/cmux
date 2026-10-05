@@ -977,8 +977,7 @@ pub enum MuxEvent {
         offset: u64,
         at_bottom: bool,
     },
-    /// The workspace/screen/pane/tab tree changed (from any frontend or
-    /// the control socket).
+    /// The workspace/screen/pane/tab tree changed (from any frontend or the control socket).
     TreeChanged,
     /// Delta subscribers need a coarse snapshot resync for a selection-only change.
     TreeSelectionChanged,
@@ -2699,6 +2698,7 @@ pub struct Mux {
     /// for it blocks instead of polling the flag.
     daemon_shutdown_waker: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
     pub(crate) control_clients: crate::server::ClientRegistry,
+    pub(crate) browser_host: crate::browser_host::BrowserHostSupervisor,
     idle_close: Mutex<idle_close::IdleCloseTracker>,
     /// Wakes the idle-close reaper when a policy changes.
     idle_close_waker: Mutex<Option<std::sync::mpsc::Sender<idle_close::ReaperMessage>>>,
@@ -2706,8 +2706,7 @@ pub struct Mux {
     terminal_host_closes: Arc<host_close::TerminalHostCloses>,
     /// Reap grace period for unplaced terminals, in milliseconds.
     terminal_reap_grace_ms: AtomicU64,
-    /// The running reaper's event receiver, so keep and grace changes can
-    /// wake it.
+    /// The running reaper's event receiver, so keep and grace changes can wake it.
     terminal_reaper_events: Mutex<Option<MuxEventReceiver>>,
     /// The launch snapshot file while its writer runs (`launch-snapshot-v1`).
     launch_snapshot_path: Mutex<Option<std::path::PathBuf>>,
@@ -3144,6 +3143,7 @@ impl Mux {
             exit_settles: Arc::default(),
             daemon_shutdown_waker: Mutex::new(None),
             control_clients: crate::server::ClientRegistry::new(),
+            browser_host: Default::default(),
             idle_close: Mutex::new(idle_close::IdleCloseTracker::default()),
             idle_close_waker: Mutex::new(None),
             terminal_host_closes: Arc::new(host_close::TerminalHostCloses::default()),
