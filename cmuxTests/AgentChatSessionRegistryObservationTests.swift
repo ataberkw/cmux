@@ -500,4 +500,55 @@ struct AgentChatSessionRegistryObservationTests {
         )
     }
 
+    /// cmux first sees an already-running agent (app relaunch, missed hooks):
+    /// its last turn is when the transcript was last written, not `now`.
+    /// Stamping `now` restarted the split map's prompt-cache countdown at 60.
+    @MainActor
+    @Test func observedRunningSessionDatesActivityFromTranscriptLastWrite() throws {
+        let transcript = FileManager.default.temporaryDirectory
+            .appendingPathComponent("observed-transcript-\(UUID().uuidString).jsonl")
+        try Data("{}\n".utf8).write(to: transcript)
+        defer { try? FileManager.default.removeItem(at: transcript) }
+        let lastWrite = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 - 40 * 60).rounded())
+        try FileManager.default.setAttributes([.modificationDate: lastWrite], ofItemAtPath: transcript.path)
+
+        let registry = AgentChatSessionRegistry()
+        let sessionID = "24ec0052-450c-4914-b1dd-2ee80d4bc84b"
+        registry.applyObservedSessions([
+            ObservedAgentSession(
+                sessionID: sessionID,
+                agentKind: .codex,
+                surfaceID: UUID().uuidString,
+                workspaceID: UUID().uuidString,
+                pid: 333,
+                workingDirectory: "/Users/example/project",
+                transcriptPath: transcript.path
+            ),
+        ])
+
+        let record = try #require(registry.record(sessionID: sessionID))
+        #expect(record.lastActivityAt == lastWrite)
+    }
+
+    /// Without a resolvable transcript there is nothing better than `now`.
+    @MainActor
+    @Test func observedRunningSessionWithoutTranscriptStampsNow() throws {
+        let registry = AgentChatSessionRegistry()
+        let sessionID = "35fd1163-561d-4a25-82ee-3ff91e5cd95c"
+        let before = Date()
+        registry.applyObservedSessions([
+            ObservedAgentSession(
+                sessionID: sessionID,
+                agentKind: .codex,
+                surfaceID: UUID().uuidString,
+                workspaceID: UUID().uuidString,
+                pid: 334,
+                workingDirectory: "/Users/example/project",
+                transcriptPath: nil
+            ),
+        ])
+
+        let record = try #require(registry.record(sessionID: sessionID))
+        #expect(record.lastActivityAt >= before)
+    }
 }

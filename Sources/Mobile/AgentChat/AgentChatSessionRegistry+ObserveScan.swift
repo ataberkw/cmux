@@ -14,6 +14,13 @@ extension AgentChatSessionRegistry {
         if reviveEndedPendingClaudeSessionIfNeeded(current: current, observed: session, now: now) {
             return true
         }
+        var revived = current
+        revived.workingDirectory = session.workingDirectory ?? current.workingDirectory
+        revived.transcriptPath = session.transcriptPath ?? current.transcriptPath
+        // The process was already running when observed; its transcript dates
+        // the last turn better than `now`.
+        let lastActivityAt = transcriptLastWrite(for: revived, now: now)
+            .map { max($0, current.lastActivityAt) } ?? now
         update(sessionID: current.sessionID) { record in
             record.workspaceID = session.workspaceID ?? record.workspaceID
             record.surfaceID = session.surfaceID
@@ -21,7 +28,7 @@ extension AgentChatSessionRegistry {
             record.transcriptPath = session.transcriptPath ?? record.transcriptPath
             record.pid = session.pid
             record.setProcessObservedIdle()
-            record.lastActivityAt = now
+            record.lastActivityAt = lastActivityAt
         }
         return true
     }

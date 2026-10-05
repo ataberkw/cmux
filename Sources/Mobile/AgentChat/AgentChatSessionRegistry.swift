@@ -14,6 +14,7 @@ final class AgentChatSessionRegistry {
     /// Latest authoritative Codex hook/store binding per terminal surface.
     var codexHookBindingBySurfaceID: [String: (sessionID: String, updatedAt: Date)] = [:]
     private let hookStore: AgentChatHookSessionStore
+    private let transcriptResolver: AgentChatTranscriptResolver
 
     /// Called after a record mutation with the previous value (nil for a
     /// brand-new record), so the owner derives state/descriptor deltas in
@@ -53,11 +54,15 @@ final class AgentChatSessionRegistry {
     /// - Parameters:
     ///   - hookStore: Reader for the per-agent hook session stores.
     ///   - restoredRecords: Records restored before live observation begins.
+    ///   - transcriptResolver: Finds an observed session's transcript, whose
+    ///     last write dates a session cmux first sees already running.
     init(
         hookStore: AgentChatHookSessionStore = AgentChatHookSessionStore(),
-        restoredRecords: [AgentChatSessionRecord] = []
+        restoredRecords: [AgentChatSessionRecord] = [],
+        transcriptResolver: AgentChatTranscriptResolver = AgentChatTranscriptResolver()
     ) {
         self.hookStore = hookStore
+        self.transcriptResolver = transcriptResolver
         for record in restoredRecords {
             records[record.sessionID] = record
             versionBySessionID[record.sessionID] = record.version
@@ -113,6 +118,17 @@ final class AgentChatSessionRegistry {
         source.resume()
     }
 
+    /// When `record`'s transcript was last written (capped at `now`), or `nil`
+    /// when none resolves. A session cmux first sees already running (an app
+    /// relaunch, a missed hook) has been idle since then, not since `now`;
+    /// stamping `now` read as a fresh turn (a full prompt-cache countdown).
+    func transcriptLastWrite(for record: AgentChatSessionRecord, now: Date) -> Date? {
+        guard let path = transcriptResolver.boundedTranscriptPath(for: record),
+              let modifiedAt = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        else { return nil }
+        return min(modifiedAt, now)
+    }
+
     var observeInFlight: AgentChatObservationInFlight?
     var observeLastStartedAt: Date?
     static let observeThrottleInterval: TimeInterval = 2
@@ -152,6 +168,9 @@ final class AgentChatSessionRegistry {
                 )
                 if observedHasRealHookStoreIdentity {
                     record.rememberHookStoreSessionID(session.sessionID)
+                }
+                if let lastWrite = transcriptLastWrite(for: record, now: now) {
+                    record.lastActivityAt = lastWrite
                 }
                 stampLifecycleTransition(previous: nil, current: &record, at: session.sampledAt)
                 stampVersion(&record)
